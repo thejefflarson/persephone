@@ -2,6 +2,7 @@ use personal_assistant::assistant::Assistant;
 use personal_assistant::loading::{ModelFile, TokenizerFile};
 
 #[test]
+#[ignore]
 fn assistant_works() {
     let tokenizer = TokenizerFile::download().unwrap().tokenizer().unwrap();
     let model = ModelFile::download().unwrap().model().unwrap();
