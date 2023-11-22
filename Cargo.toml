@@ -1,0 +1,18 @@
+[package]
+name = "personal-assistant"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.75"
+async-graphql = { version = "6.0.10", features = ["tracing"] }
+async-graphql-axum = "6.0.10"
+axum = { version = "0.6.20", features = ["tracing"] }
+candle-core = { git = "https://github.com/huggingface/candle.git", version = "0.3.0" }
+candle-transformers = { git = "https://github.com/huggingface/candle.git", version = "0.3.0" }
+clap = { version = "4.4.7", features = ["derive"] }
+hf-hub = "0.3.2"
+sqlx = { version = "0.7.2", features = ["runtime-tokio", "tls-rustls"] }
+tokenizers = "0.15.0"
