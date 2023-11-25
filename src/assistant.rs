@@ -31,7 +31,7 @@ impl Assistant {
             .ok_or_else(|| anyhow!("no end of text token?"))?;
         let sample_len = 100;
         let device = Cpu;
-        let mut logits_processor = LogitsProcessor::new(299792458, None, None);
+        let mut logits_processor = LogitsProcessor::new(299792458, Some(0.9), None);
         for index in 0..sample_len {
             let context_size = if index > 0 { 1 } else { tokens.len() };
             // take a slice of where we have been, on the first loop it's the whole thing, and then
