@@ -6,7 +6,9 @@ use candle_core::Tensor;
 use candle_transformers::generation::LogitsProcessor;
 use candle_transformers::models::quantized_mixformer::MixFormerSequentialForCausalLM;
 use tokenizers::Tokenizer;
+use tokio::sync::oneshot;
 
+#[derive(Clone)]
 pub struct Assistant {
     model: MixFormerSequentialForCausalLM,
     tokenizer: Tokenizer,
@@ -51,5 +53,16 @@ impl Assistant {
             .decode(&tokens, true)
             .map_err(|e| anyhow!(e))?;
         Ok(String::from(result))
+    }
+
+    pub async fn answer_nonblocking(&self, prompt: &str) -> Result<String> {
+        let (tx, rx) = oneshot::channel();
+        let mut copy = self.clone();
+        let p = prompt.to_owned();
+        rayon::spawn(move || {
+            let result = copy.answer(&p);
+            tx.send(result).unwrap()
+        });
+        rx.await?
     }
 }
