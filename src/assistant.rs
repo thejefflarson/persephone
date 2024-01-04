@@ -4,22 +4,21 @@ use candle_core::DType::F32;
 use candle_core::Device::Cpu;
 use candle_core::Tensor;
 use candle_transformers::generation::LogitsProcessor;
-use candle_transformers::models::quantized_mixformer::MixFormerSequentialForCausalLM;
+use candle_transformers::models::llama::Llama;
 use tokenizers::Tokenizer;
 use tokio::sync::oneshot;
 
-#[derive(Clone)]
 pub struct Assistant {
-    model: MixFormerSequentialForCausalLM,
+    model: Llama,
     tokenizer: Tokenizer,
 }
 
 impl Assistant {
-    pub fn new(model: MixFormerSequentialForCausalLM, tokenizer: Tokenizer) -> Self {
+    pub fn new(model: Llama, tokenizer: Tokenizer) -> Self {
         Self { model, tokenizer }
     }
 
-    pub fn answer(&mut self, prompt: &str) -> Result<String> {
+    pub fn answer(&self, prompt: &str) -> Result<String> {
         let mut tokens = self
             .tokenizer
             .encode(prompt, false)
@@ -36,12 +35,13 @@ impl Assistant {
         let mut logits_processor = LogitsProcessor::new(299792458, Some(0.9), None);
         for index in 0..sample_len {
             let context_size = if index > 0 { 1 } else { tokens.len() };
-            // take a slice of where we have been, on the first loop it's the whole thing, and then
-            // as we go it's the last item, because we're actually training the model to predict
-            // each next word. Hilarious!
             let trimmed = &tokens[tokens.len().saturating_sub(context_size)..];
             let input = Tensor::new(trimmed, &device)?.unsqueeze(0)?;
-            let logits = self.model.forward(&input)?.squeeze(0)?.to_dtype(F32)?;
+            let logits = self
+                .model
+                .forward(&input, index)?
+                .squeeze(0)?
+                .to_dtype(F32)?;
             let next_token = logits_processor.sample(&logits)?;
             tokens.push(next_token);
             if next_token == eos {
@@ -56,13 +56,14 @@ impl Assistant {
     }
 
     pub async fn answer_nonblocking(&self, prompt: &str) -> Result<String> {
-        let (tx, rx) = oneshot::channel();
-        let mut copy = self.clone();
-        let p = prompt.to_owned();
-        rayon::spawn(move || {
-            let result = copy.answer(&p);
-            tx.send(result).unwrap()
-        });
-        rx.await?
+        todo!()
+        // let (tx, rx) = oneshot::channel();
+        // let copy = self.clone();
+        // let p = prompt.to_owned();
+        // rayon::spawn(move || {
+        //     let result = copy.answer(&p);
+        //     tx.send(result).unwrap()
+        // });
+        // rx.await?
     }
 }
