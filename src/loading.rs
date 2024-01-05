@@ -1,34 +1,33 @@
 use anyhow::{anyhow, Result};
-use candle_core::quantized::gguf_file::Content;
-use candle_transformers::models::quantized_llama::ModelWeights;
+use candle_core::{DType, Device::Cpu};
+use candle_nn::VarBuilder;
+use candle_transformers::models::llama::{Cache, Config, Llama, LlamaConfig};
 use hf_hub::{
     api::sync::{Api, ApiRepo},
     Repo, RepoType,
 };
 use std::{
     fmt::{Display, Formatter},
-    fs::File,
     path::PathBuf,
 };
 use tokenizers::Tokenizer;
 
-const MODEL_REPO: &'static str = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF";
-fn build_repo(repo: Option<&str>) -> Result<ApiRepo> {
+const MODEL_REPO: &'static str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0";
+fn build_repo() -> Result<ApiRepo> {
     let api = Api::new()?;
     Ok(api.repo(Repo::with_revision(
-        repo.unwrap_or_else(|| MODEL_REPO).to_string(),
+        MODEL_REPO.to_string(),
         RepoType::Model,
         "main".to_string(),
     )))
 }
 
 const TOKENIZER: &'static str = "tokenizer.json";
-const TOKENIZER_REPO: &'static str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0";
 #[derive(Debug)]
 pub struct TokenizerFile(PathBuf);
 impl TokenizerFile {
     pub fn download() -> Result<TokenizerFile> {
-        let repo = build_repo(Some(TOKENIZER_REPO))?;
+        let repo = build_repo()?;
         let filename = repo.get(TOKENIZER)?;
         Ok(Self(filename))
     }
@@ -44,21 +43,39 @@ impl Display for TokenizerFile {
     }
 }
 
-const MODEL_FILE: &'static str = "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
+const MODEL_FILE: &'static str = "model.safetensors";
 #[derive(Debug)]
 pub struct ModelFile(PathBuf);
 impl ModelFile {
     pub fn download() -> Result<ModelFile> {
-        let repo = build_repo(None)?;
+        let repo = build_repo()?;
         let filename = repo.get(MODEL_FILE)?;
         Ok(Self(filename))
     }
 
-    pub fn model(&self) -> Result<ModelWeights> {
-        let mut file = File::open(self.0.clone())?;
-        let gguf = Content::read(&mut file)?;
-        let model = ModelWeights::from_gguf(gguf, &mut file)?;
+    pub fn model(&self, config: Config) -> Result<Llama> {
+        let vb = unsafe {
+            VarBuilder::from_mmaped_safetensors(&vec![self.0.clone()], DType::BF16, &Cpu)?
+        };
+        let cache = Cache::new(true, DType::BF16, &config, &Cpu)?;
+        let model = Llama::load(vb, &cache, &config)?;
         Ok(model)
+    }
+}
+
+const CONFIG_FILE: &'static str = "config.json";
+pub struct ConfigFile(PathBuf);
+impl ConfigFile {
+    pub fn download() -> Result<ConfigFile> {
+        let repo = build_repo()?;
+        let filename = repo.get(CONFIG_FILE)?;
+        Ok(Self(filename))
+    }
+
+    pub fn config(&self) -> Result<Config> {
+        let json = std::fs::read(&self.0)?;
+        let config: LlamaConfig = serde_json::from_slice(&json)?;
+        Ok(config.into_config(true))
     }
 }
 

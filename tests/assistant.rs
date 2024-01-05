@@ -1,20 +1,16 @@
 use personal_assistant::assistant::Assistant;
-use personal_assistant::loading::{ModelFile, TokenizerFile};
+use personal_assistant::loading::{ConfigFile, ModelFile, TokenizerFile};
 
 // This test is really expensive
 #[test]
 fn assistant_works() {
     let tokenizer = TokenizerFile::download().unwrap().tokenizer().unwrap();
-    let model = ModelFile::download().unwrap().model().unwrap();
+    let config = ConfigFile::download().unwrap().config().unwrap();
+    let model = ModelFile::download().unwrap().model(config).unwrap();
     let mut assistant = Assistant::new(model, tokenizer);
     let result = assistant
         .answer(
-            r#"<|system|>
-Your name is Assistant. You only know one word: Assistant. Reply with that single word.</s>
-<|user|>
-What is your name?</s>
-<|assistant|>
-"#,
+            "Your name is Assistant. You only know one word: your name Assistant. Answer every question only with the word 'Assistant'.\nUSER: Say your name?\nASSISTANT:",
         )
         .unwrap();
     assert_eq!(

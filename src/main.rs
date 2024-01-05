@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
-use personal_assistant::loading::{ModelFile, TokenizerFile};
+use personal_assistant::loading::{ConfigFile, ModelFile, TokenizerFile};
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum Command {
     /// Download and cache models
@@ -25,7 +25,8 @@ fn download() -> Result<()> {
 }
 
 fn serve() -> Result<()> {
-    let model = ModelFile::download()?;
+    let config = ConfigFile::download()?.config()?;
+    let model = ModelFile::download()?.model(config)?;
     let tokenizer = TokenizerFile::download()?.tokenizer()?;
     Ok(())
 }
