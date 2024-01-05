@@ -1,7 +1,8 @@
 use anyhow::{anyhow, Result};
-use candle_core::{DType, Device::Cpu};
-use candle_nn::VarBuilder;
-use candle_transformers::models::llama::{Cache, Config, Llama, LlamaConfig};
+use candle_transformers::{
+    models::quantized_mixformer::{Config, MixFormerSequentialForCausalLM},
+    quantized_var_builder::VarBuilder,
+};
 use hf_hub::{
     api::sync::{Api, ApiRepo},
     Repo, RepoType,
@@ -12,7 +13,7 @@ use std::{
 };
 use tokenizers::Tokenizer;
 
-const MODEL_REPO: &'static str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0";
+const MODEL_REPO: &'static str = "lmz/candle-quantized-phi";
 fn build_repo() -> Result<ApiRepo> {
     let api = Api::new()?;
     Ok(api.repo(Repo::with_revision(
@@ -22,7 +23,7 @@ fn build_repo() -> Result<ApiRepo> {
     )))
 }
 
-const TOKENIZER: &'static str = "tokenizer.json";
+const TOKENIZER: &'static str = "tokenizer-puffin-phi-v2.json";
 #[derive(Debug)]
 pub struct TokenizerFile(PathBuf);
 impl TokenizerFile {
@@ -43,7 +44,7 @@ impl Display for TokenizerFile {
     }
 }
 
-const MODEL_FILE: &'static str = "model.safetensors";
+const MODEL_FILE: &'static str = "model-puffin-phi-v2-q4k.gguf";
 #[derive(Debug)]
 pub struct ModelFile(PathBuf);
 impl ModelFile {
@@ -53,29 +54,10 @@ impl ModelFile {
         Ok(Self(filename))
     }
 
-    pub fn model(&self, config: Config) -> Result<Llama> {
-        let vb = unsafe {
-            VarBuilder::from_mmaped_safetensors(&vec![self.0.clone()], DType::BF16, &Cpu)?
-        };
-        let cache = Cache::new(true, DType::BF16, &config, &Cpu)?;
-        let model = Llama::load(vb, &cache, &config)?;
+    pub fn model(&self) -> Result<MixFormerSequentialForCausalLM> {
+        let vb = VarBuilder::from_gguf(&self.0)?;
+        let model = MixFormerSequentialForCausalLM::new(&Config::puffin_phi_v2(), vb)?;
         Ok(model)
-    }
-}
-
-const CONFIG_FILE: &'static str = "config.json";
-pub struct ConfigFile(PathBuf);
-impl ConfigFile {
-    pub fn download() -> Result<ConfigFile> {
-        let repo = build_repo()?;
-        let filename = repo.get(CONFIG_FILE)?;
-        Ok(Self(filename))
-    }
-
-    pub fn config(&self) -> Result<Config> {
-        let json = std::fs::read(&self.0)?;
-        let config: LlamaConfig = serde_json::from_slice(&json)?;
-        Ok(config.into_config(true))
     }
 }
 

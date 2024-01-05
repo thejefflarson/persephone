@@ -1,12 +1,11 @@
 use personal_assistant::assistant::Assistant;
-use personal_assistant::loading::{ConfigFile, ModelFile, TokenizerFile};
+use personal_assistant::loading::{ModelFile, TokenizerFile};
 
 // This test is really expensive
 #[test]
 fn assistant_works() {
     let tokenizer = TokenizerFile::download().unwrap().tokenizer().unwrap();
-    let config = ConfigFile::download().unwrap().config().unwrap();
-    let model = ModelFile::download().unwrap().model(config).unwrap();
+    let model = ModelFile::download().unwrap().model().unwrap();
     let mut assistant = Assistant::new(model, tokenizer);
     let result = assistant
         .answer(
