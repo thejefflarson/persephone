@@ -1,8 +1,6 @@
-use std::cell::Cell;
-
-use anyhow::Result;
-
 use crate::assistant::Assistant;
+use anyhow::Result;
+use std::cell::Cell;
 
 pub trait Prompt {
     fn run(&self, assistant: &mut Assistant, context: Option<String>) -> Result<String>;
