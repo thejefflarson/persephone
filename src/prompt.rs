@@ -1,20 +1,9 @@
+use crate::assistant::Assistant;
+use anyhow::Result;
 use std::cell::Cell;
 
-use anyhow::Result;
-use async_graphql::futures_util::Stream;
-
-use crate::assistant::Assistant;
-
 pub trait Prompt {
-    fn run(&self, assistant: &Assistant, context: Option<String>) -> Result<String>;
-}
-
-pub trait AsyncPrompt {
-    async fn run_async(
-        &self,
-        assistant: &Assistant,
-        context: Option<String>,
-    ) -> impl Stream<Item = Result<String>>;
+    fn run(&self, assistant: &mut Assistant, context: Option<String>) -> Result<String>;
 }
 
 pub struct StringReplacer {
@@ -29,7 +18,7 @@ impl StringReplacer {
 }
 
 impl Prompt for StringReplacer {
-    fn run(&self, assistant: &Assistant, context: Option<String>) -> Result<String> {
+    fn run(&self, assistant: &mut Assistant, context: Option<String>) -> Result<String> {
         let ctx = context.unwrap_or_else(|| String::from(""));
         let _a = assistant;
         Ok(ctx.replace(&self.key, &self.context))
@@ -42,7 +31,7 @@ pub struct SmartReplacer {
 }
 
 impl Prompt for SmartReplacer {
-    fn run(&self, assistant: &Assistant, context: Option<String>) -> Result<String> {
+    fn run(&self, assistant: &mut Assistant, context: Option<String>) -> Result<String> {
         let ctx = context.unwrap_or_else(|| String::from(""));
         let answer = assistant.answer(&self.prompt)?;
         Ok(ctx.replace(&self.key, &answer))
@@ -56,7 +45,7 @@ pub struct Memory {
 pub struct Simple;
 
 impl Prompt for Simple {
-    fn run(&self, assistant: &Assistant, context: Option<String>) -> Result<String> {
+    fn run(&self, assistant: &mut Assistant, context: Option<String>) -> Result<String> {
         let ctx = context.unwrap_or_else(|| String::from(""));
         assistant.answer(&ctx)
     }
@@ -78,7 +67,7 @@ pub struct PromptChain {
 }
 
 impl Prompt for PromptChain {
-    fn run(&self, assistant: &Assistant, context: Option<String>) -> Result<String> {
+    fn run(&self, assistant: &mut Assistant, context: Option<String>) -> Result<String> {
         let acc = context.unwrap_or_else(|| String::from(""));
         Ok(self
             .prompts
