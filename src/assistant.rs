@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use anyhow::anyhow;
 use anyhow::Result;
 use candle_core::DType::F32;
@@ -20,6 +22,13 @@ impl Assistant {
     }
 
     pub fn answer(&mut self, prompt: &str) -> Result<String> {
+        println!(
+            "avx: {}, neon: {}, simd128: {}, f16c: {}",
+            candle_core::utils::with_avx(),
+            candle_core::utils::with_neon(),
+            candle_core::utils::with_simd128(),
+            candle_core::utils::with_f16c()
+        );
         let mut tokens = self
             .tokenizer
             .encode(prompt, false)
@@ -33,17 +42,24 @@ impl Assistant {
             .ok_or_else(|| anyhow!("no end of text token?"))?;
         let sample_len = 100;
         let device = Cpu;
+        println!("running!");
         let mut logits_processor = LogitsProcessor::new(299792458, Some(0.9), None);
+        let mut generated_tokens = 0;
+        let start = Instant::now();
         for index in 0..sample_len {
             let context_size = if index > 0 { 1 } else { tokens.len() };
-            // take a slice of where we have been, on the first loop it's the whole thing, and then
-            // as we go it's the last item, because we're actually training the model to predict
-            // each next word. Hilarious!
             let trimmed = &tokens[tokens.len().saturating_sub(context_size)..];
             let input = Tensor::new(trimmed, &device)?.unsqueeze(0)?;
             let logits = self.model.forward(&input)?.squeeze(0)?.to_dtype(F32)?;
             let next_token = logits_processor.sample(&logits)?;
             tokens.push(next_token);
+            print!(
+                "{}",
+                self.tokenizer
+                    .decode(&[next_token], true)
+                    .map_err(|e| anyhow!(e))?
+            );
+            generated_tokens += 1;
             if next_token == eos {
                 break;
             }
@@ -52,6 +68,11 @@ impl Assistant {
             .tokenizer
             .decode(&tokens, true)
             .map_err(|e| anyhow!(e))?;
+        let done = start.elapsed();
+        println!(
+            "Generated {generated_tokens} tokens ({:.2} t/s)",
+            generated_tokens as f64 / done.as_secs_f64()
+        );
         Ok(String::from(result))
     }
 

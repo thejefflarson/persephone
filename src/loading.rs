@@ -1,6 +1,9 @@
 use anyhow::{anyhow, Result};
 use candle_transformers::{
-    models::quantized_mixformer::{Config, MixFormerSequentialForCausalLM},
+    models::{
+        quantized_llama::ModelWeights,
+        quantized_mixformer::{Config, MixFormerSequentialForCausalLM},
+    },
     quantized_var_builder::VarBuilder,
 };
 use hf_hub::{
@@ -23,7 +26,7 @@ fn build_repo() -> Result<ApiRepo> {
     )))
 }
 
-const TOKENIZER: &'static str = "tokenizer-puffin-phi-v2.json";
+const TOKENIZER: &'static str = "tokenizer.json";
 #[derive(Debug)]
 pub struct TokenizerFile(PathBuf);
 impl TokenizerFile {
@@ -44,7 +47,7 @@ impl Display for TokenizerFile {
     }
 }
 
-const MODEL_FILE: &'static str = "model-puffin-phi-v2-q4k.gguf";
+const MODEL_FILE: &'static str = "model-v2-q4k.gguf";
 #[derive(Debug)]
 pub struct ModelFile(PathBuf);
 impl ModelFile {
@@ -56,7 +59,7 @@ impl ModelFile {
 
     pub fn model(&self) -> Result<MixFormerSequentialForCausalLM> {
         let vb = VarBuilder::from_gguf(&self.0)?;
-        let model = MixFormerSequentialForCausalLM::new(&Config::puffin_phi_v2(), vb)?;
+        let model = MixFormerSequentialForCausalLM::new_v2(&Config::v2(), vb)?;
         Ok(model)
     }
 }

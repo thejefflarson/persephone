@@ -8,14 +8,10 @@ fn assistant_works() {
     let model = ModelFile::download().unwrap().model().unwrap();
     let mut assistant = Assistant::new(model, tokenizer);
     let result = assistant
-        .answer(
-            "Your name is Assistant. You only know one word: your name Assistant. Answer every question only with the word 'Assistant'.\nUSER: Say your name?\nASSISTANT:",
-        )
+        .answer("Input: Say only the word Assistant. Do not reply with any other text.\nOutput:")
         .unwrap();
     assert_eq!(
         result,
-        String::from(
-            "Your name is Assistant. You only know one word: your name Assistant. Answer every question only with the word 'Assistant'.\nUSER: Say your name?\nASSISTANT: Assistant."
-        )
+        String::from("Input: Say only the word Assistant. Do not reply with any other text.\nOutput: Assistant.\n")
     );
 }
