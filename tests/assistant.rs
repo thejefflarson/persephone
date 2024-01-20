@@ -8,7 +8,7 @@ use personal_assistant::prompt::SimplePrompt;
 async fn assistant_works() {
     let tokenizer = TokenizerFile::download().unwrap().tokenizer().unwrap();
     let model = ModelFile::download().unwrap().model().unwrap();
-    let mut assistant = Assistant::new(model, tokenizer);
+    let assistant = Assistant::new(model, tokenizer);
     let prompt = SimplePrompt::new();
 
     let result = prompt
