@@ -25,8 +25,8 @@ fn download() -> Result<()> {
 }
 
 fn serve() -> Result<()> {
-    let model = ModelFile::download()?.model()?;
-    let tokenizer = TokenizerFile::download()?.tokenizer()?;
+    let _model = ModelFile::download()?.model()?;
+    let _tokenizer = TokenizerFile::download()?.tokenizer()?;
     Ok(())
 }
 
