@@ -2,13 +2,14 @@ use std::time::Instant;
 
 use anyhow::anyhow;
 use anyhow::Result;
+use async_stream::stream;
 use candle_core::DType::F32;
 use candle_core::Device::Cpu;
 use candle_core::Tensor;
 use candle_transformers::generation::LogitsProcessor;
 use candle_transformers::models::quantized_mixformer::MixFormerSequentialForCausalLM;
+use futures_util::Stream;
 use tokenizers::Tokenizer;
-use tokio::sync::oneshot;
 
 #[derive(Clone)]
 pub struct Assistant {
@@ -21,7 +22,10 @@ impl Assistant {
         Self { model, tokenizer }
     }
 
-    pub fn answer(&self, prompt: &str) -> Result<String> {
+    pub async fn answer<'a>(
+        &'a self,
+        prompt: String,
+    ) -> Result<impl Stream<Item = Result<String>> + 'a> {
         println!(
             "avx: {}, neon: {}, simd128: {}, f16c: {}",
             candle_core::utils::with_avx(),
@@ -42,49 +46,31 @@ impl Assistant {
             .ok_or_else(|| anyhow!("no end of text token?"))?;
         let sample_len = 100;
         let device = Cpu;
-        println!("running!");
         let mut logits_processor = LogitsProcessor::new(299792458, Some(0.9), None);
         let mut generated_tokens = 0;
         let mut assistant = self.clone();
         let start = Instant::now();
-        for index in 0..sample_len {
-            let context_size = if index > 0 { 1 } else { tokens.len() };
-            let trimmed = &tokens[tokens.len().saturating_sub(context_size)..];
-            let input = Tensor::new(trimmed, &device)?.unsqueeze(0)?;
-            let logits = assistant.model.forward(&input)?.squeeze(0)?.to_dtype(F32)?;
-            let next_token = logits_processor.sample(&logits)?;
-            tokens.push(next_token);
-            print!(
-                "{}",
-                self.tokenizer
-                    .decode(&[next_token], true)
-                    .map_err(|e| anyhow!(e))?
-            );
-            generated_tokens += 1;
-            if next_token == eos {
-                break;
+        let s = stream! {
+            for index in 0..sample_len {
+                let context_size = if index > 0 { 1 } else { tokens.len() };
+                let trimmed = &tokens[tokens.len().saturating_sub(context_size)..];
+                let input = Tensor::new(trimmed, &device)?.unsqueeze(0)?;
+                let logits = assistant.model.forward(&input)?.squeeze(0)?.to_dtype(F32)?;
+                let next_token = logits_processor.sample(&logits)?;
+                tokens.push(next_token);
+                generated_tokens += 1;
+                let decoded = self.tokenizer.decode(&tokens, true).map_err(|e| anyhow!(e))?;
+                yield (Ok(decoded));
+                if next_token == eos {
+                    break;
+                }
             }
-        }
-        let result = self
-            .tokenizer
-            .decode(&tokens, true)
-            .map_err(|e| anyhow!(e))?;
-        let done = start.elapsed();
-        println!(
-            "Generated {generated_tokens} tokens ({:.2} t/s)",
-            generated_tokens as f64 / done.as_secs_f64()
-        );
-        Ok(String::from(result))
-    }
-
-    pub async fn answer_nonblocking(&self, prompt: &str) -> Result<String> {
-        let (tx, rx) = oneshot::channel();
-        let mut copy = self.clone();
-        let p = prompt.to_owned();
-        rayon::spawn(move || {
-            let result = copy.answer(&p);
-            tx.send(result).unwrap()
-        });
-        rx.await?
+            let done = start.elapsed();
+            println!(
+                "Generated {generated_tokens} tokens ({:.2} t/s)",
+                generated_tokens as f64 / done.as_secs_f64()
+            );
+        };
+        Ok(s)
     }
 }

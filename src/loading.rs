@@ -1,9 +1,6 @@
 use anyhow::{anyhow, Result};
 use candle_transformers::{
-    models::{
-        quantized_llama::ModelWeights,
-        quantized_mixformer::{Config, MixFormerSequentialForCausalLM},
-    },
+    models::quantized_mixformer::{Config, MixFormerSequentialForCausalLM},
     quantized_var_builder::VarBuilder,
 };
 use hf_hub::{

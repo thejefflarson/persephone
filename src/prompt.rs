@@ -1,9 +1,12 @@
 use crate::assistant::Assistant;
 use anyhow::Result;
-use std::cell::Cell;
+use async_trait::async_trait;
+use futures_util::{Stream, StreamExt};
+use std::{cell::Cell, pin::pin};
 
-pub trait Prompt {
-    fn run(&self, assistant: &Assistant, context: Option<String>) -> Result<String>;
+#[async_trait]
+pub trait BlockingPrompt {
+    async fn run(&self, assistant: &Assistant, context: Option<String>) -> Result<String>;
 }
 
 pub struct StringReplacer {
@@ -17,8 +20,9 @@ impl StringReplacer {
     }
 }
 
-impl Prompt for StringReplacer {
-    fn run(&self, assistant: &Assistant, context: Option<String>) -> Result<String> {
+#[async_trait]
+impl BlockingPrompt for StringReplacer {
+    async fn run(&self, assistant: &Assistant, context: Option<String>) -> Result<String> {
         let ctx = context.unwrap_or_else(|| String::from(""));
         let _a = assistant;
         Ok(ctx.replace(&self.key, &self.context))
@@ -30,10 +34,21 @@ pub struct SmartReplacer {
     prompt: String,
 }
 
-impl Prompt for SmartReplacer {
-    fn run(&self, assistant: &Assistant, context: Option<String>) -> Result<String> {
+impl SmartReplacer {
+    pub fn new(key: String, prompt: String) -> Self {
+        Self { key, prompt }
+    }
+}
+
+#[async_trait]
+impl BlockingPrompt for SmartReplacer {
+    async fn run(&self, assistant: &Assistant, context: Option<String>) -> Result<String> {
         let ctx = context.unwrap_or_else(|| String::from(""));
-        let answer = assistant.answer(&self.prompt)?;
+        let mut answer = String::from("");
+        let mut stream = pin!(assistant.answer(self.prompt.clone()).await?);
+        while let Some(res) = stream.next().await {
+            answer = res?;
+        }
         Ok(ctx.replace(&self.key, &answer))
     }
 }
@@ -42,25 +57,48 @@ pub struct Memory {
     memory: Cell<String>,
 }
 
-pub struct Simple;
+pub struct SimplePrompt;
 
-impl Prompt for Simple {
-    fn run(&self, assistant: &Assistant, context: Option<String>) -> Result<String> {
+impl SimplePrompt {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+#[async_trait]
+impl BlockingPrompt for SimplePrompt {
+    async fn run(&self, assistant: &Assistant, context: Option<String>) -> Result<String> {
         let ctx = context.unwrap_or_else(|| String::from(""));
-        assistant.answer(&ctx)
+        let mut answer = String::from("");
+        let mut stream = pin!(assistant.answer(ctx).await?);
+        while let Some(res) = stream.next().await {
+            answer = res?;
+        }
+        Ok(answer)
     }
 }
 
-pub struct PromptChain {
-    prompts: Vec<Box<dyn Prompt>>,
+pub struct SimpleStream;
+
+impl SimpleStream {
+    async fn run<'a>(
+        &'a self,
+        assistant: &'a Assistant,
+        context: Option<String>,
+    ) -> Result<impl Stream<Item = Result<String>> + 'a> {
+        let ctx = context.unwrap_or_else(|| String::from("")).clone();
+        assistant.answer(ctx).await
+    }
 }
 
-impl Prompt for PromptChain {
-    fn run(&self, assistant: &Assistant, context: Option<String>) -> Result<String> {
-        let acc = context.unwrap_or_else(|| String::from(""));
-        Ok(self
-            .prompts
-            .iter()
-            .try_fold(acc, |acc, prompt| prompt.run(assistant, Some(acc)))?)
+async fn run_chain(
+    prompts: Vec<impl BlockingPrompt>,
+    assistant: &Assistant,
+    context: Option<String>,
+) -> Result<String> {
+    let mut acc = context.unwrap_or_else(|| String::from(""));
+    for prompt in prompts {
+        acc = prompt.run(assistant, Some(acc)).await?
     }
+    Ok(acc)
 }
