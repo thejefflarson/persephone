@@ -31,6 +31,6 @@ async fn graphiql() -> impl IntoResponse {
 }
 
 async fn start() -> Result<()> {
-    let schema = AssistantSchema::build(QueryRoot, EmptyMutation, SubscriptionRoot).finish();
+    let _schema = AssistantSchema::build(QueryRoot, EmptyMutation, SubscriptionRoot).finish();
     Ok(())
 }
