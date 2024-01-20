@@ -13,6 +13,8 @@ use std::{
 };
 use tokenizers::Tokenizer;
 
+use crate::utils::device;
+
 const MODEL_REPO: &str = "lmz/candle-quantized-phi";
 fn build_repo() -> Result<ApiRepo> {
     let api = Api::new()?;
@@ -55,7 +57,7 @@ impl ModelFile {
     }
 
     pub fn model(&self) -> Result<MixFormerSequentialForCausalLM> {
-        let vb = VarBuilder::from_gguf(&self.0)?;
+        let vb = VarBuilder::from_gguf(&self.0, &device()?)?;
         MixFormerSequentialForCausalLM::new_v2(&Config::v2(), vb).map_err(|e| anyhow!(e))
     }
 }

@@ -7,13 +7,13 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.75"
-async-graphql = { version = "6.0.10", features = ["tracing"] }
-async-graphql-axum = "6.0.10"
+async-graphql = { version = "7.0.0", features = ["tracing"] }
+async-graphql-axum = "7.0.0"
 async-stream = "0.3.5"
 async-trait = "0.1.77"
 axum = { version = "0.7.3", features = ["tracing"] }
-candle-core = "0.3.1"
-candle-transformers = "0.3.1"
+candle-core = { git = "https://github.com/huggingface/candle.git", version = "0.3.3", features = ["metal"] }
+candle-transformers = { git = "https://github.com/huggingface/candle.git", version = "0.3.3", features = ["metal"] }
 clap = { version = "4.4.7", features = ["derive"] }
 futures-util = "0.3.30"
 hf-hub = "0.3.2"
