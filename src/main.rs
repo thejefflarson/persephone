@@ -1,6 +1,8 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use clap::{Parser, ValueEnum};
 use personal_assistant::loading::{ModelFile, TokenizerFile};
+use personal_assistant::server::start;
+
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum Command {
     /// Download and cache models
@@ -24,13 +26,12 @@ fn download() -> Result<()> {
     Ok(())
 }
 
-fn serve() -> Result<()> {
-    let _model = ModelFile::download()?.model()?;
-    let _tokenizer = TokenizerFile::download()?.tokenizer()?;
-    Ok(())
+async fn serve() -> Result<()> {
+    start().await.map_err(|e| anyhow!(e.message))
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let cli = Cli::parse();
 
     match cli.command {
@@ -38,7 +39,7 @@ fn main() {
             download().expect("couldn't get models");
         }
         Command::Serve => {
-            serve().expect("couldn't start server");
+            serve().await.expect("couldn't start server");
         }
     }
 }

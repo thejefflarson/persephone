@@ -13,7 +13,6 @@ use tokenizers::Tokenizer;
 use crate::utils;
 
 #[derive(Clone)]
-
 pub struct Assistant {
     model: MixFormerSequentialForCausalLM,
     tokenizer: Tokenizer,
