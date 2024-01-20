@@ -21,7 +21,7 @@ impl Assistant {
         Self { model, tokenizer }
     }
 
-    pub fn answer(&mut self, prompt: &str) -> Result<String> {
+    pub fn answer(&self, prompt: &str) -> Result<String> {
         println!(
             "avx: {}, neon: {}, simd128: {}, f16c: {}",
             candle_core::utils::with_avx(),
@@ -45,12 +45,13 @@ impl Assistant {
         println!("running!");
         let mut logits_processor = LogitsProcessor::new(299792458, Some(0.9), None);
         let mut generated_tokens = 0;
+        let mut assistant = self.clone();
         let start = Instant::now();
         for index in 0..sample_len {
             let context_size = if index > 0 { 1 } else { tokens.len() };
             let trimmed = &tokens[tokens.len().saturating_sub(context_size)..];
             let input = Tensor::new(trimmed, &device)?.unsqueeze(0)?;
-            let logits = self.model.forward(&input)?.squeeze(0)?.to_dtype(F32)?;
+            let logits = assistant.model.forward(&input)?.squeeze(0)?.to_dtype(F32)?;
             let next_token = logits_processor.sample(&logits)?;
             tokens.push(next_token);
             print!(
