@@ -13,7 +13,7 @@ use std::{
 };
 use tokenizers::Tokenizer;
 
-const MODEL_REPO: &'static str = "lmz/candle-quantized-phi";
+const MODEL_REPO: &str = "lmz/candle-quantized-phi";
 fn build_repo() -> Result<ApiRepo> {
     let api = Api::new()?;
     Ok(api.repo(Repo::with_revision(
@@ -23,7 +23,7 @@ fn build_repo() -> Result<ApiRepo> {
     )))
 }
 
-const TOKENIZER: &'static str = "tokenizer.json";
+const TOKENIZER: &str = "tokenizer.json";
 #[derive(Debug)]
 pub struct TokenizerFile(PathBuf);
 impl TokenizerFile {
@@ -34,7 +34,7 @@ impl TokenizerFile {
     }
 
     pub fn tokenizer(self) -> Result<Tokenizer> {
-        Ok(Tokenizer::from_file(self.0).map_err(|e| anyhow!(e))?)
+        Tokenizer::from_file(self.0).map_err(|e| anyhow!(e))
     }
 }
 
@@ -44,7 +44,7 @@ impl Display for TokenizerFile {
     }
 }
 
-const MODEL_FILE: &'static str = "model-v2-q4k.gguf";
+const MODEL_FILE: &str = "model-v2-q4k.gguf";
 #[derive(Debug)]
 pub struct ModelFile(PathBuf);
 impl ModelFile {
@@ -56,8 +56,7 @@ impl ModelFile {
 
     pub fn model(&self) -> Result<MixFormerSequentialForCausalLM> {
         let vb = VarBuilder::from_gguf(&self.0)?;
-        let model = MixFormerSequentialForCausalLM::new_v2(&Config::v2(), vb)?;
-        Ok(model)
+        MixFormerSequentialForCausalLM::new_v2(&Config::v2(), vb).map_err(|e| anyhow!(e))
     }
 }
 

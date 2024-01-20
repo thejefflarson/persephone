@@ -57,6 +57,7 @@ pub struct Memory {
     memory: Cell<String>,
 }
 
+#[derive(Default)]
 pub struct SimplePrompt;
 
 impl SimplePrompt {
