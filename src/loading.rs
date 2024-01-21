@@ -19,9 +19,9 @@ const MODEL_REPO: &str = "lmz/candle-quantized-phi";
 fn build_repo() -> Result<ApiRepo> {
     let api = Api::new()?;
     Ok(api.repo(Repo::with_revision(
-        MODEL_REPO.to_string(),
+        MODEL_REPO.into(),
         RepoType::Model,
-        "main".to_string(),
+        "main".into(),
     )))
 }
 

@@ -1,7 +1,10 @@
 use anyhow::{anyhow, Result};
 use clap::{Parser, ValueEnum};
-use personal_assistant::loading::{ModelFile, TokenizerFile};
-use personal_assistant::server::start;
+use personal_assistant::{
+    loading::{ModelFile, TokenizerFile},
+    server::start,
+    speech::say,
+};
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum Command {
@@ -9,6 +12,8 @@ enum Command {
     Download,
     /// Serve the api
     Serve,
+    /// Test speech implementation
+    Speech,
 }
 
 #[derive(Parser)]
@@ -40,6 +45,9 @@ async fn main() {
         }
         Command::Serve => {
             serve().await.expect("couldn't start server");
+        }
+        Command::Speech => {
+            say().expect("couldn't say");
         }
     }
 }

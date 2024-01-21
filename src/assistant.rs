@@ -45,7 +45,6 @@ impl Assistant {
             .get_vocab(true)
             .get("<|endoftext|>")
             .ok_or_else(|| anyhow!("no end of text token?"))?;
-        let sample_len = 100;
         let device = utils::device()?;
         let mut logits_processor = LogitsProcessor::new(299792458, Some(0.9), None);
         let mut generated_tokens = 0;
@@ -53,15 +52,15 @@ impl Assistant {
         let mut assistant = self.clone();
         let start = Instant::now();
         let s = stream! {
-            for index in 0..sample_len {
-                let context_size = if index > 0 { 1 } else { tokens.len() };
+            loop {
+                let context_size = if generated_tokens > 0 { 1 } else { tokens.len() };
                 let trimmed = &tokens[tokens.len().saturating_sub(context_size)..];
                 let input = Tensor::new(trimmed, &device)?.unsqueeze(0)?;
                 let logits = assistant.model.forward(&input)?.squeeze(0)?.to_dtype(F32)?;
                 let next_token = logits_processor.sample(&logits)?;
                 tokens.push(next_token);
                 generated_tokens += 1;
-                let decoded = self.tokenizer.decode(&tokens, true).map_err(|e| anyhow!(e))?;
+                let decoded = self.tokenizer.decode(&[next_token], true).map_err(|e| anyhow!(e))?;
                 yield (Ok(decoded));
                 if next_token == eos {
                     break;
@@ -69,8 +68,9 @@ impl Assistant {
             }
             let done = start.elapsed();
             println!(
-                "Generated {generated_tokens} tokens ({:.2} t/s)",
-                generated_tokens as f64 / done.as_secs_f64()
+                "Generated {generated_tokens} tokens ({:.2} t/s) in {:.2} seconds",
+                generated_tokens as f64 / done.as_secs_f64(),
+                done.as_secs_f64()
             );
             assistant.model.clear_kv_cache();
         };

@@ -13,10 +13,13 @@ async-stream = "0.3.5"
 async-trait = "0.1.77"
 axum = { version = "0.7.3", features = ["tracing"] }
 candle-core = { git = "https://github.com/huggingface/candle.git", version = "0.3.3", features = ["metal"] }
+candle-onnx = { git = "https://github.com/huggingface/candle.git", version = "0.3.3" }
 candle-transformers = { git = "https://github.com/huggingface/candle.git", version = "0.3.3", features = ["metal"] }
 clap = { version = "4.4.7", features = ["derive"] }
 futures-util = "0.3.30"
 hf-hub = "0.3.2"
+ort = { version = "2.0.0-alpha.4", features = ["coreml"] }
+serde = "1.0.195"
 sqlx = { version = "0.7.2", features = ["runtime-tokio", "tls-rustls"] }
 tokenizers = "0.15.0"
 tokio = { version = "1.34.0", features = ["full", "tracing"] }
