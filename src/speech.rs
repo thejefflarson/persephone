@@ -1,9 +1,12 @@
-use std::{collections::HashMap, fs::read_to_string};
+use std::{collections::HashMap, fs::read_to_string, io::Write};
 
 use anyhow::{anyhow, Result};
-use candle_core::{cpu_backend::CpuDevice, Device::Cpu, Tensor};
+use candle_core::{cpu_backend::CpuDevice, Device::Cpu};
 use candle_onnx::read_file;
 use hf_hub::{api::sync::Api, Repo, RepoType};
+use hound::{Sample, WavSpec};
+use ndarray::{Array1, Axis};
+use ort::{inputs, Session, Tensor};
 
 use crate::utils;
 
@@ -31,10 +34,11 @@ pub fn say() -> Result<()> {
         RepoType::Model,
         "main".into(),
     ));
-    println!("parsing lexicon");
+    //println!("parsing lexicon");
     let lexicon = build_map(read_to_string(repo.get("lexicon.txt")?)?);
-    println!("parsing tokens");
+    //println!("parsing tokens");
     let tok_map = build_map(read_to_string(repo.get("tokens.txt")?)?);
+
     let model = read_file(repo.get("vits-ljs.onnx")?)?;
     let graph = model.graph.as_ref().unwrap();
     let punctuation = model
@@ -50,9 +54,11 @@ pub fn say() -> Result<()> {
         })
         .collect::<Vec<Vec<String>>>();
     let punct = &punctuation[0];
-    println!("{:?}", punct);
+    //println!("{:?}", punct);
 
-    let input = "Hello, my name is Persephone!".to_lowercase();
+    let input = "Hello, my name is Persephone! Most common audio formats can be streamed using specific server-side technologies.
+
+Note: It's potentially easier to stream audio using non-streaming formats because unlike video there are no keyframes.".to_lowercase();
     let space = tok_map
         .get(&" ".to_string())
         .ok_or(anyhow!("no space character?"))?
@@ -70,25 +76,46 @@ pub fn say() -> Result<()> {
             acc.push(space);
         }
     }
-    let device = Cpu;
-    let tensor = Tensor::from_vec(acc.clone(), acc.len(), &device)?;
-    println!("{:#?}", graph.input);
 
-    let x_length = Tensor::from_vec(vec![acc.len() as i64], 1, &device)?;
-    let noise_scale = Tensor::from_vec(vec![1 as f32], 1, &device)?;
-    let noise_scale_w = Tensor::from_vec(vec![1 as f32], 1, &device)?;
-    let length_scale = Tensor::from_vec(vec![1 as f32], 1, &device)?;
-    let sid = Tensor::from_vec(vec![0 as i64], 1, &device)?;
+    let model = Session::builder()?.with_model_from_file(repo.get("vits-ljs.onnx")?)?;
+    //println!("{:#?}", model.inputs);
+    //println!("{:#?}", model.metadata()?.custom("sample_rate"));
+    //println!("{:?}", acc);
+    let ndarray = Array1::from_iter(acc.iter().cloned()).insert_axis(Axis(0));
+    let x_length = Array1::from_vec(vec![1 as i64]);
+    let noise_scale = Array1::from_vec(vec![1 as f32]);
+    let noise_scale_w = Array1::from_vec(vec![1 as f32]);
+    let length_scale = Array1::from_vec(vec![1 as f32]);
 
-    let mut inputs: HashMap<String, Tensor> = std::collections::HashMap::new();
-    println!("{:#?}", graph.input);
-    inputs.insert("x".to_string(), tensor.unsqueeze(0)?);
-    inputs.insert("x_length".to_string(), x_length);
-    inputs.insert("sid".to_string(), sid);
-    inputs.insert("noise_scale".to_string(), noise_scale);
-    inputs.insert("noise_scale_w".to_string(), noise_scale_w);
-    inputs.insert("length_scale".to_string(), length_scale);
-    let outputs = candle_onnx::simple_eval(&model, inputs)?;
-    println!("{:?}", outputs);
+    let outputs = model.run(inputs![
+        "x" => ndarray,
+        "x_length" => x_length,
+        "noise_scale" => noise_scale,
+        "noise_scale_w" => noise_scale_w,
+        "length_scale" => length_scale,
+    ]?)?;
+
+    //println!("{:?}", outputs["y"]);
+    let outputs: Tensor<f32> = outputs["y"].extract_tensor()?;
+    let outputs = outputs.view();
+    //println!("{:?}", outputs.clone().into_iter().collect::<Vec<&f32>>());
+
+    // https://github.com/ruuda/hound/blob/master/examples/append.rs
+    let spec = WavSpec {
+        bits_per_sample: 32,
+        channels: 1,
+        sample_format: hound::SampleFormat::Float,
+        sample_rate: 22050,
+    };
+
+    let v = spec.into_header_for_infinite_file();
+
+    let so = std::io::stdout();
+    let mut so = so.lock();
+    so.write_all(&v[..]).unwrap();
+
+    for sample in outputs.iter() {
+        Sample::write(sample.to_owned(), &mut so, 32).unwrap();
+    }
     Ok(())
 }
