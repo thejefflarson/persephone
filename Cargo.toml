@@ -13,7 +13,6 @@ async-stream = "0.3.5"
 async-trait = "0.1.77"
 axum = { version = "0.7.3", features = ["tracing"] }
 candle-core = { git = "https://github.com/huggingface/candle.git", version = "0.3.3" }
-candle-onnx = { git = "https://github.com/huggingface/candle.git", version = "0.3.3" }
 candle-transformers = { git = "https://github.com/huggingface/candle.git", version = "0.3.3" }
 clap = { version = "4.4.7", features = ["derive"] }
 futures-util = "0.3.30"
