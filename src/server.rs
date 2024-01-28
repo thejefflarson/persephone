@@ -1,50 +1,51 @@
-use std::sync::Arc;
+use std::{pin::pin, sync::Arc};
 
 use crate::{
-    assistant::{self, Assistant},
+    assistant::Assistant,
     loading::{ModelFile, TokenizerFile},
 };
 
 use async_graphql::{
-    http::GraphiQLSource, Context, EmptyMutation, Error, GuardExt, Object, Result, Schema,
-    Subscription,
+    http::GraphiQLSource, Context, EmptyMutation, Error, Object, Result, Schema, Subscription,
 };
 use async_graphql_axum::{GraphQL, GraphQLSubscription};
 use async_stream::stream;
 use axum::{
-    body::Body,
-    extract::State,
-    response::{
-        sse::{Event, KeepAlive},
-        Html, IntoResponse, Sse,
-    },
-    routing::{get, post},
-    serve, Json, Router,
+    response::{Html, IntoResponse},
+    routing::get,
+    serve, Router,
 };
-use futures_util::{lock::Mutex, Stream, StreamExt, TryStreamExt};
-use serde::Deserialize;
-use std::pin::pin;
+use futures_util::{lock::Mutex, Stream, StreamExt};
 use tokio::{net::TcpListener, sync::mpsc};
 
-struct QueryRoot;
+struct Query;
 
 #[Object]
-impl QueryRoot {
+impl Query {
     async fn ask(&self, ctx: &Context<'_>, prompt: String) -> &'static str {
         "heyo"
     }
 }
 
 type Storage = Arc<Mutex<Assistant>>;
-struct SubscriptionRoot;
+struct Subscription;
+
+const PROMPT: &str = r#"
+<s>[INST] You are an AI assistant named Persephone. You are cheerful, empathetic, intellectual, community-minded and have a sense of humor. You are designed to provide answers to questions. Do not introduce yourself unless asked who you are by the user.
+
+Do not cite sources, books or web sites because you often imagine ones that do not exist. From time to time, you should remind the user that your answers are opinions and not based on fact. Answer this question:
+
+{{question}}
+[/INST]
+"#;
 
 // TODO: consider this for errors:
 // https://github.com/tokio-rs/axum/blob/main/examples/anyhow-error-response/src/main.rs
 #[Subscription]
-impl SubscriptionRoot {
+impl Subscription {
     async fn ask(
         &self,
-        // Annoying but has to be second
+        // Annoying but has to be the second argument
         ctx: &Context<'_>,
         prompt: String,
     ) -> Result<impl Stream<Item = Result<String>> + '_> {
@@ -53,7 +54,8 @@ impl SubscriptionRoot {
         tokio::spawn(async move {
             let assistant = arc.lock().await;
             // TODO: figure out how to make this not an unwrap
-            let tokens = assistant.answer(prompt).await.unwrap();
+            let p = PROMPT.to_string().clone().replace("{{question}}", &prompt);
+            let tokens = assistant.answer(p).await.unwrap();
             let mut toks = pin!(tokens);
             while let Some(token) = toks.next().await {
                 tx.send(token.map_err(|e| Error::new(e.to_string())))
@@ -70,7 +72,7 @@ impl SubscriptionRoot {
     }
 }
 
-type AssistantSchema = Schema<QueryRoot, EmptyMutation, SubscriptionRoot>;
+type AssistantSchema = Schema<Query, EmptyMutation, Subscription>;
 
 async fn graphiql() -> impl IntoResponse {
     Html(
@@ -81,41 +83,12 @@ async fn graphiql() -> impl IntoResponse {
     )
 }
 
-#[derive(Deserialize)]
-struct StreamingArgs {
-    pub prompt: String,
-}
-
-async fn streaming(State(storage): State<Storage>, Json(body): Json<StreamingArgs>) -> Body {
-    let arc = storage.clone();
-    let (tx, mut rx) = mpsc::channel(20);
-    tokio::spawn(async move {
-        let assistant = arc.lock().await;
-        println!("{}", body.prompt);
-        let tokens = assistant.answer(body.prompt).await.unwrap();
-        let mut toks = pin!(tokens);
-        while let Some(token) = toks.next().await {
-            let tok = token
-                .map(|it| it)
-                .map_err(|e| axum::Error::new(e.to_string()));
-            tx.send(tok).await.unwrap()
-        }
-    });
-
-    let s = stream! {
-        while let Some(token) = rx.recv().await {
-            yield token
-        }
-    };
-    Body::from_stream(s)
-}
-
 pub async fn start() -> Result<()> {
     let model = ModelFile::download()?.model()?;
     let tokenizer = TokenizerFile::download()?.tokenizer()?;
     let assistant = Assistant::new(model, tokenizer);
     let storage = Arc::new(Mutex::new(assistant));
-    let schema = AssistantSchema::build(QueryRoot, EmptyMutation, SubscriptionRoot)
+    let schema = AssistantSchema::build(Query, EmptyMutation, Subscription)
         .data(storage.clone())
         .finish();
     let app = Router::new()
@@ -123,7 +96,6 @@ pub async fn start() -> Result<()> {
             "/",
             get(graphiql).post_service(GraphQL::new(schema.clone())),
         )
-        .route("/streaming", post(streaming).with_state(storage))
         .route_service("/ws", GraphQLSubscription::new(schema));
     serve(TcpListener::bind("127.0.0.1:8000").await?, app).await?;
     Ok(())

@@ -70,10 +70,10 @@ impl SimplePrompt {
 impl BlockingPrompt for SimplePrompt {
     async fn run(&self, assistant: &Assistant, context: Option<String>) -> Result<String> {
         let ctx = context.unwrap_or_else(|| String::from(""));
-        let mut answer = String::from("");
         let mut stream = pin!(assistant.answer(ctx).await?);
+        let mut answer = String::from("");
         while let Some(res) = stream.next().await {
-            answer = res?;
+            answer.push_str(&res?);
         }
         Ok(answer)
     }

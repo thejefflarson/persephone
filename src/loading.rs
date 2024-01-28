@@ -1,6 +1,10 @@
 use anyhow::{anyhow, Result};
+use candle_core::quantized::gguf_file::Content;
 use candle_transformers::{
-    models::quantized_mixformer::{Config, MixFormerSequentialForCausalLM},
+    models::{
+        quantized_llama::ModelWeights,
+        quantized_mixformer::{Config, MixFormerSequentialForCausalLM},
+    },
     quantized_var_builder::VarBuilder,
 };
 use hf_hub::{
@@ -9,28 +13,29 @@ use hf_hub::{
 };
 use std::{
     fmt::{Display, Formatter},
+    fs::File,
     path::PathBuf,
 };
 use tokenizers::Tokenizer;
 
 use crate::utils::device;
 
-const MODEL_REPO: &str = "lmz/candle-quantized-phi";
-fn build_repo() -> Result<ApiRepo> {
+fn build_repo(repo: &str) -> Result<ApiRepo> {
     let api = Api::new()?;
     Ok(api.repo(Repo::with_revision(
-        MODEL_REPO.into(),
+        repo.into(),
         RepoType::Model,
         "main".into(),
     )))
 }
 
+const TOKENIZER_REPO: &str = "mistralai/Mistral-7B-Instruct-v0.2";
 const TOKENIZER: &str = "tokenizer.json";
 #[derive(Debug)]
 pub struct TokenizerFile(PathBuf);
 impl TokenizerFile {
     pub fn download() -> Result<TokenizerFile> {
-        let repo = build_repo()?;
+        let repo = build_repo(TOKENIZER_REPO)?;
         let filename = repo.get(TOKENIZER)?;
         Ok(Self(filename))
     }
@@ -46,19 +51,21 @@ impl Display for TokenizerFile {
     }
 }
 
-const MODEL_FILE: &str = "model-v2-q4k.gguf";
+const MODEL_REPO: &str = "TheBloke/Mistral-7B-Instruct-v0.2-GGUF";
+const MODEL_FILE: &str = "mistral-7b-instruct-v0.2.Q4_K_S.gguf";
 #[derive(Debug)]
 pub struct ModelFile(PathBuf);
 impl ModelFile {
     pub fn download() -> Result<ModelFile> {
-        let repo = build_repo()?;
+        let repo = build_repo(MODEL_REPO)?;
         let filename = repo.get(MODEL_FILE)?;
         Ok(Self(filename))
     }
 
-    pub fn model(&self) -> Result<MixFormerSequentialForCausalLM> {
-        let vb = VarBuilder::from_gguf(&self.0, &device()?)?;
-        MixFormerSequentialForCausalLM::new_v2(&Config::v2(), vb).map_err(|e| anyhow!(e))
+    pub fn model(&self) -> Result<ModelWeights> {
+        let mut file = File::open(&self.0)?;
+        let gguf = Content::read(&mut file)?;
+        ModelWeights::from_gguf(gguf, &mut file, &device()?).map_err(|e| anyhow!(e))
     }
 }
 

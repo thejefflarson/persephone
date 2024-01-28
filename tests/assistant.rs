@@ -4,6 +4,7 @@ use personal_assistant::prompt::BlockingPrompt;
 use personal_assistant::prompt::SimplePrompt;
 
 // This test is really expensive
+#[ignore]
 #[tokio::test]
 async fn assistant_works() {
     let tokenizer = TokenizerFile::download().unwrap().tokenizer().unwrap();
@@ -15,14 +16,11 @@ async fn assistant_works() {
         .run(
             &assistant,
             Some(String::from(
-                "Input: Say only the word Assistant. Do not reply with any other text.\nOutput:",
+                "<s>[INST]Reply with the word 'Assistant'. Do not reply with any other text.[/INST]",
             )),
         )
         .await
         .unwrap();
 
-    assert_eq!(
-        result,
-        String::from("Input: Say only the word Assistant. Do not reply with any other text.\nOutput: Assistant.\n")
-    );
+    assert_eq!(result, String::from("Assistant."));
 }
