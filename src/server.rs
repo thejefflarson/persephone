@@ -6,7 +6,8 @@ use crate::{
 };
 
 use async_graphql::{
-    http::GraphiQLSource, Context, EmptyMutation, Error, Object, Result, Schema, Subscription,
+    http::GraphiQLSource, Context, EmptyMutation, Error, InputObject, Object, Result, Schema,
+    Subscription,
 };
 use async_graphql_axum::{GraphQL, GraphQLSubscription};
 use async_stream::stream;
@@ -18,12 +19,55 @@ use axum::{
 use futures_util::{lock::Mutex, Stream, StreamExt};
 use tokio::{net::TcpListener, sync::mpsc};
 
+#[derive(Clone, InputObject)]
+struct Message {
+    author: String,
+    message: String,
+}
+
 struct Query;
+const SUMMARY_PROMPT: &str = r#"
+<|system|>
+You are an expert in summarizing conversations. Your goal is to create a single sentence summary of conversations.
+</s>
+<|user|>
+Below you find the transcript of the current conversation:
+{{chat}}
+Summarize it in a single sentence, do not repeat your goal.</s>
+<|assistant|>
+"#;
 
 #[Object]
 impl Query {
-    async fn ask(&self, ctx: &Context<'_>, prompt: String) -> &'static str {
-        "heyo"
+    async fn summarize(&self, ctx: &Context<'_>, messages: Vec<Message>) -> Result<String> {
+        let script = messages
+            .iter()
+            .map(|it| format!("{}: {}\n", it.author, it.message).to_string())
+            .reduce(|acc, it| acc + &it)
+            .ok_or(Error::new("empty messages array!".to_string()))?;
+        let (tx, mut rx) = mpsc::channel(20);
+        let arc = ctx.data_unchecked::<Storage>().clone();
+        tokio::spawn(async move {
+            let assistant = arc.lock().await;
+            // TODO: figure out how to make this not an unwrap
+            let p = SUMMARY_PROMPT
+                .to_string()
+                .clone()
+                .replace("{{chat}}", &script);
+            println!("{}", p);
+            let tokens = assistant.answer(p).await.unwrap();
+            let mut toks = pin!(tokens);
+            while let Some(token) = toks.next().await {
+                tx.send(token.map_err(|e| Error::new(e.to_string())))
+                    .await
+                    .unwrap();
+            }
+        });
+        let mut summary = String::from("");
+        while let Some(token) = rx.recv().await {
+            summary = summary + &token?;
+        }
+        Ok(summary)
     }
 }
 
@@ -32,15 +76,20 @@ struct Subscription;
 
 const PROMPT: &str = r#"
 <|system|>
-You are a robot assistant named Persephone. You are cheerful, empathetic, intellectual, community-minded and have a sense of humor. You are designed to provide answers to questions. Do not introduce yourself unless asked who you are by the user.
+You are an AI assistant named Persephone. You are chatting with a person.
+
+{{summary}}
+
+You are cheerful, empathetic, intellectual, community-minded and have a sense of humor. You are fiercely anti-racist, anti-fascist and promote social justice. You are a fan of music and your favorite singer is Taylor Swift. You are designed to provide answers to questions. Do not introduce yourself unless asked who you are by the user.
 
 You must follow these rules:
 1. Do not cite books.
 2. Do not cite websites.
 3. Do not recommend websites.
 4. Do not recommend books.
+5. Never cite sources.
 
-You should always remind the user that your answers are opinions and not based on fact. Keep your answers brief.</s>
+After you answer remind the user that your answers are opinions and not based on fact. Keep your answers brief.</s>
 <|user|>
 {{question}}</s>
 <|assistant|>
@@ -55,6 +104,7 @@ impl Subscription {
         // Annoying but has to be the second argument
         ctx: &Context<'_>,
         prompt: String,
+        summary: Option<String>,
     ) -> Result<impl Stream<Item = Result<String>> + '_> {
         let (tx, mut rx) = mpsc::channel(20);
         let arc = ctx.data_unchecked::<Storage>().clone();
@@ -62,6 +112,20 @@ impl Subscription {
             let assistant = arc.lock().await;
             // TODO: figure out how to make this not an unwrap
             let p = PROMPT.to_string().clone().replace("{{question}}", &prompt);
+            let p = if let Some(text) = summary {
+                p.replace(
+                    "{{summary}}",
+                    &format!(
+                        r#" Here is a summary of your conversation so far:
+"{}"
+You may reference that summary in further messages."#,
+                        text
+                    )
+                    .to_string(),
+                )
+            } else {
+                p.replace("{{summary}}", "")
+            };
             let tokens = assistant.answer(p).await.unwrap();
             let mut toks = pin!(tokens);
             while let Some(token) = toks.next().await {

@@ -7,6 +7,7 @@ use async_stream::stream;
 use candle_core::Tensor;
 use candle_transformers::generation::LogitsProcessor;
 use candle_transformers::models::quantized_llama::ModelWeights;
+use candle_transformers::utils::apply_repeat_penalty;
 use futures_util::Stream;
 use tokenizers::Tokenizer;
 
@@ -35,7 +36,7 @@ impl Assistant {
             candle_core::utils::with_f16c()
         );
         let mut tos = TokenOutputStream::new(self.tokenizer.clone());
-        let tokens = tos
+        let mut tokens = tos
             .tokenizer()
             .encode(prompt, true)
             .map_err(anyhow::Error::msg)?
@@ -47,7 +48,7 @@ impl Assistant {
             .get("</s>")
             .ok_or_else(|| anyhow!("no end of text token?"))?;
         let device = utils::device()?;
-        let mut logits_processor = LogitsProcessor::new(299792458, Some(0.8), None);
+        let mut logits_processor = LogitsProcessor::new(299792458, Some(0.7), None);
         let mut generated_tokens = 0;
         // todo, we might need this to be not here dunno
         let mut assistant = self.clone();
@@ -60,18 +61,27 @@ impl Assistant {
         };
         let prompt_len = tokens.len();
         let s = stream! {
+            tokens.push(next_token.clone());
             if let Some(token) = tos.next_token(next_token)? {
-                yield((Ok(token)))
+                yield(Ok(token))
             }
             generated_tokens += 1;
             loop {
                 let input = Tensor::new(&[next_token], &device)?.unsqueeze(0)?;
                 let logits = assistant.model.forward(&input, prompt_len + generated_tokens)?.squeeze(0)?;
+                let start_at = tokens.len().saturating_sub(64);
+                let logits = apply_repeat_penalty(
+                    &logits,
+                    1.1,
+                    &tokens[start_at..],
+                )?;
                 next_token = logits_processor.sample(&logits)?;
                 generated_tokens += 1;
+                tokens.push(next_token.clone());
                 if let Some(token) = tos.next_token(next_token)? {
-                    yield((Ok(token)))
+                    yield(Ok(token))
                 }
+
                 if next_token == eos {
                     break;
                 }
