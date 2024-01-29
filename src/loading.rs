@@ -1,14 +1,19 @@
 use anyhow::{anyhow, Result};
-use candle_core::DType::F16;
-use candle_nn::VarBuilder;
-use candle_transformers::models::llama::{Cache, Llama, LlamaConfig};
+use candle_core::quantized::gguf_file::Content;
+use candle_transformers::{
+    models::{
+        quantized_llama::ModelWeights,
+        quantized_mixformer::{Config, MixFormerSequentialForCausalLM},
+    },
+    quantized_var_builder::VarBuilder,
+};
 use hf_hub::{
     api::sync::{Api, ApiRepo},
     Repo, RepoType,
 };
 use std::{
     fmt::{Display, Formatter},
-    fs::read,
+    fs::File,
     path::PathBuf,
 };
 use tokenizers::Tokenizer;
@@ -46,35 +51,26 @@ impl Display for TokenizerFile {
     }
 }
 
-const MODEL_REPO: &str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0";
-const MODEL_FILE: &str = "model.safetensors";
-const CONFIG_FILE: &str = "config.json";
+const MODEL_REPO: &str = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF";
+const MODEL_FILE: &str = "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
 #[derive(Debug)]
-pub struct ModelFile {
-    filename: PathBuf,
-    config: PathBuf,
-}
+pub struct ModelFile(PathBuf);
 impl ModelFile {
     pub fn download() -> Result<ModelFile> {
         let repo = build_repo(MODEL_REPO)?;
         let filename = repo.get(MODEL_FILE)?;
-        let config = repo.get(CONFIG_FILE)?;
-        Ok(Self { filename, config })
+        Ok(Self(filename))
     }
 
-    pub fn model(&self) -> Result<Llama> {
-        let config: LlamaConfig = serde_json::from_slice(&read(self.config.clone())?)?;
-        let config = config.into_config(false);
-        let vb = unsafe {
-            VarBuilder::from_mmaped_safetensors(&vec![self.filename.clone()], F16, &device()?)?
-        };
-        let cache = Cache::new(false, F16, &config, &device()?).map_err(|e| anyhow!(e))?;
-        Ok(Llama::load(vb, &cache, &config)?)
+    pub fn model(&self) -> Result<ModelWeights> {
+        let mut file = File::open(&self.0)?;
+        let gguf = Content::read(&mut file)?;
+        ModelWeights::from_gguf(gguf, &mut file, &device()?).map_err(|e| anyhow!(e))
     }
 }
 
 impl Display for ModelFile {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        write!(f, "{:?}", self.filename)
+        write!(f, "{:?}", self.0)
     }
 }
