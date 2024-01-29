@@ -34,7 +34,6 @@ impl Assistant {
             candle_core::utils::with_simd128(),
             candle_core::utils::with_f16c()
         );
-        println!("{}", prompt);
         let mut tos = TokenOutputStream::new(self.tokenizer.clone());
         let tokens = tos
             .tokenizer()
