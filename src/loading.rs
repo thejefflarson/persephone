@@ -68,7 +68,7 @@ impl ModelFile {
         let vb = unsafe {
             VarBuilder::from_mmaped_safetensors(&vec![self.filename.clone()], F16, &device()?)?
         };
-        let cache = Cache::new(true, F16, &config, &device()?).map_err(|e| anyhow!(e))?;
+        let cache = Cache::new(false, F16, &config, &device()?).map_err(|e| anyhow!(e))?;
         Ok(Llama::load(vb, &cache, &config)?)
     }
 }
