@@ -29,7 +29,7 @@ fn build_repo(repo: &str) -> Result<ApiRepo> {
     )))
 }
 
-const TOKENIZER_REPO: &str = "mistralai/Mistral-7B-Instruct-v0.2";
+const TOKENIZER_REPO: &str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0";
 const TOKENIZER: &str = "tokenizer.json";
 #[derive(Debug)]
 pub struct TokenizerFile(PathBuf);
@@ -51,8 +51,8 @@ impl Display for TokenizerFile {
     }
 }
 
-const MODEL_REPO: &str = "TheBloke/Mistral-7B-Instruct-v0.2-GGUF";
-const MODEL_FILE: &str = "mistral-7b-instruct-v0.2.Q4_K_S.gguf";
+const MODEL_REPO: &str = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF";
+const MODEL_FILE: &str = "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
 #[derive(Debug)]
 pub struct ModelFile(PathBuf);
 impl ModelFile {
