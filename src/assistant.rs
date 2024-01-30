@@ -48,7 +48,7 @@ impl Assistant {
             .get("</s>")
             .ok_or_else(|| anyhow!("no end of text token?"))?;
         let device = utils::device()?;
-        let mut logits_processor = LogitsProcessor::new(299792458, Some(0.7), None);
+        let mut logits_processor = LogitsProcessor::new(299792458, Some(0.8), None);
         let mut generated_tokens = 0;
         // todo, we might need this to be not here dunno
         let mut assistant = self.clone();

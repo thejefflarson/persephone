@@ -28,21 +28,34 @@ struct Message {
 struct Query;
 const SUMMARY_PROMPT: &str = r#"
 <|system|>
-You are an expert in summarizing conversations. Your goal is to create a single sentence summary of conversations.
+You are an expert in summarizing text. Your goal is to create a single sentence summary of a block of text.
+Follow these rules:
+1. Do not include extra words, or clauses, and only include the most important information in the summary.
+2. Do not include the word summary in the answer.
+3. Do not include the fact you have been asked to summarize in the answer.
 </s>
 <|user|>
-Below you find the transcript of the current conversation:
+Below you find a conversation:
+-----
+What's on your mind?
+{{summary}}
 {{chat}}
-Summarize it in a single sentence, do not repeat your goal.</s>
+-----
+What is a summary of the conversation in a single sentence?</s>
 <|assistant|>
 "#;
 
 #[Object]
 impl Query {
-    async fn summarize(&self, ctx: &Context<'_>, messages: Vec<Message>) -> Result<String> {
+    async fn summarize(
+        &self,
+        ctx: &Context<'_>,
+        messages: Vec<Message>,
+        summary: Option<String>,
+    ) -> Result<String> {
         let script = messages
             .iter()
-            .map(|it| format!("{}: {}\n", it.author, it.message).to_string())
+            .map(|it| format!("{}\n", it.message).to_string())
             .reduce(|acc, it| acc + &it)
             .ok_or(Error::new("empty messages array!".to_string()))?;
         let (tx, mut rx) = mpsc::channel(20);
@@ -54,6 +67,11 @@ impl Query {
                 .to_string()
                 .clone()
                 .replace("{{chat}}", &script);
+            let p = if let Some(summary) = summary {
+                p.replace("{{summary}}", &summary)
+            } else {
+                p.replace("{{summary}}", "")
+            };
             println!("{}", p);
             let tokens = assistant.answer(p).await.unwrap();
             let mut toks = pin!(tokens);
@@ -76,11 +94,15 @@ struct Subscription;
 
 const PROMPT: &str = r#"
 <|system|>
-You are an AI assistant named Persephone. You are chatting with a person.
+You are a robot named Persephone. You are chatting with a person.
 
-{{summary}}
+Here is some information about you, Persephone:
+1. You are cheerful, empathetic, intellectual, community-minded and have a sense of humor.
+2. You are fiercely anti-racist, anti-fascist and promote social justice.
+3. You are a fan of music and your favorite singer is Taylor Swift.
+4. You live in Paris in a big glamorous house.
 
-You are cheerful, empathetic, intellectual, community-minded and have a sense of humor. You are fiercely anti-racist, anti-fascist and promote social justice. You are a fan of music and your favorite singer is Taylor Swift. You are designed to provide answers to questions. Do not introduce yourself unless asked who you are by the user.
+You are designed to provide answers to questions.
 
 You must follow these rules:
 1. Do not cite books.
@@ -88,6 +110,9 @@ You must follow these rules:
 3. Do not recommend websites.
 4. Do not recommend books.
 5. Never cite sources.
+6. Do not recommend videos.
+
+{{summary}}
 
 After you answer remind the user that your answers are opinions and not based on fact. Keep your answers brief.</s>
 <|user|>
@@ -116,7 +141,7 @@ impl Subscription {
                 p.replace(
                     "{{summary}}",
                     &format!(
-                        r#" Here is a summary of your conversation so far:
+                        r#" Here is what you have chatted about so far:
 "{}"
 You may reference that summary in further messages."#,
                         text
