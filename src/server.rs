@@ -193,6 +193,6 @@ pub async fn start() -> Result<()> {
             get(graphiql).post_service(GraphQL::new(schema.clone())),
         )
         .route_service("/ws", GraphQLSubscription::new(schema));
-    serve(TcpListener::bind("127.0.0.1:8000").await?, app).await?;
+    serve(TcpListener::bind("0.0.0.0:8000").await?, app).await?;
     Ok(())
 }
