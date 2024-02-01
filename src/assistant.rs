@@ -79,7 +79,7 @@ impl Assistant {
                 generated_tokens += 1;
                 tokens.push(next_token.clone());
                 if let Some(token) = tos.next_token(next_token)? {
-                    yield(Ok(token))
+                    yield Ok(token)
                 }
 
                 if next_token == eos {

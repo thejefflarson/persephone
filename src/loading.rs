@@ -1,12 +1,6 @@
 use anyhow::{anyhow, Result};
 use candle_core::quantized::gguf_file::Content;
-use candle_transformers::{
-    models::{
-        quantized_llama::ModelWeights,
-        quantized_mixformer::{Config, MixFormerSequentialForCausalLM},
-    },
-    quantized_var_builder::VarBuilder,
-};
+use candle_transformers::models::quantized_llama::ModelWeights;
 use hf_hub::{
     api::sync::{Api, ApiRepo},
     Repo, RepoType,

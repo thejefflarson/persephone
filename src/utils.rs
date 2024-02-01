@@ -5,11 +5,11 @@ use candle_core::{
 };
 
 pub fn device() -> Result<Device> {
-    //if metal_is_available() {
-    //    Ok(Device::new_metal(0)?)
-    //} else if cuda_is_available() {
-    //    Ok(Device::new_cuda(0)?)
-    //} else {
-    Ok(Device::Cpu)
-    //}
+    if metal_is_available() {
+        Ok(Device::new_metal(0)?)
+    } else if cuda_is_available() {
+        Ok(Device::new_cuda(0)?)
+    } else {
+        Ok(Device::Cpu)
+    }
 }
