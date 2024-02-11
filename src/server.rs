@@ -37,7 +37,7 @@ Follow these rules:
 <|user|>
 Below you find a conversation:
 -----
-What's on your mind?
+What have we been talking about?
 {{summary}}
 {{chat}}
 -----

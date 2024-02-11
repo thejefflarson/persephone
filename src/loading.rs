@@ -46,7 +46,7 @@ impl Display for TokenizerFile {
 }
 
 const MODEL_REPO: &str = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF";
-const MODEL_FILE: &str = "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
+const MODEL_FILE: &str = "tinyllama-1.1b-chat-v1.0.Q3_K_S.gguf";
 #[derive(Debug)]
 pub struct ModelFile(PathBuf);
 impl ModelFile {
