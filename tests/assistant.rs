@@ -1,7 +1,7 @@
-use personal_assistant::assistant::Assistant;
-use personal_assistant::loading::{ModelFile, TokenizerFile};
-use personal_assistant::prompt::BlockingPrompt;
-use personal_assistant::prompt::SimplePrompt;
+use persephone::assistant::Assistant;
+use persephone::loading::{ModelFile, TokenizerFile};
+use persephone::prompt::BlockingPrompt;
+use persephone::prompt::SimplePrompt;
 
 // This test is really expensive
 #[ignore]
