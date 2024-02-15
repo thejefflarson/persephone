@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use clap::{Parser, ValueEnum};
-use personal_assistant::{
+use persephone::{
     loading::{ModelFile, TokenizerFile},
     server::start,
 };
