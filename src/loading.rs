@@ -1,35 +1,35 @@
 use anyhow::{anyhow, Result};
-use candle_core::quantized::gguf_file::Content;
-use candle_transformers::models::quantized_llama::ModelWeights;
+use candle_core::DType;
+use candle_nn::VarBuilder;
+use candle_transformers::models::mamba::{Config, Model};
 use hf_hub::{
     api::sync::{Api, ApiRepo},
     Repo, RepoType,
 };
 use std::{
     fmt::{Display, Formatter},
-    fs::File,
     path::PathBuf,
 };
 use tokenizers::Tokenizer;
 
 use crate::utils::device;
 
-fn build_repo(repo: &str) -> Result<ApiRepo> {
+fn build_repo(repo: &str, branch: &str) -> Result<ApiRepo> {
     let api = Api::new()?;
     Ok(api.repo(Repo::with_revision(
         repo.into(),
         RepoType::Model,
-        "main".into(),
+        branch.into(),
     )))
 }
 
-const TOKENIZER_REPO: &str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0";
+const TOKENIZER_REPO: &str = "EleutherAI/gpt-neox-20b";
 const TOKENIZER: &str = "tokenizer.json";
 #[derive(Debug)]
 pub struct TokenizerFile(PathBuf);
 impl TokenizerFile {
     pub fn download() -> Result<TokenizerFile> {
-        let repo = build_repo(TOKENIZER_REPO)?;
+        let repo = build_repo(TOKENIZER_REPO, "main")?;
         let filename = repo.get(TOKENIZER)?;
         Ok(Self(filename))
     }
@@ -45,26 +45,35 @@ impl Display for TokenizerFile {
     }
 }
 
-const MODEL_REPO: &str = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF";
-const MODEL_FILE: &str = "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
+const MODEL_REPO: &str = "state-spaces/mamba-790m";
+const MODEL_FILE: &str = "model.safetensors";
+const CONFIG_FILE: &str = "config.json";
 #[derive(Debug)]
-pub struct ModelFile(PathBuf);
+pub struct ModelFile {
+    model: PathBuf,
+    config: PathBuf,
+}
 impl ModelFile {
     pub fn download() -> Result<ModelFile> {
-        let repo = build_repo(MODEL_REPO)?;
-        let filename = repo.get(MODEL_FILE)?;
-        Ok(Self(filename))
+        let repo = build_repo(MODEL_REPO, "refs/pr/1")?;
+        let model = repo.get(MODEL_FILE)?;
+        let config = repo.get(CONFIG_FILE)?;
+        Ok(Self { model, config })
     }
 
-    pub fn model(&self) -> Result<ModelWeights> {
-        let mut file = File::open(&self.0)?;
-        let gguf = Content::read(&mut file)?;
-        ModelWeights::from_gguf(gguf, &mut file, &device()?).map_err(|e| anyhow!(e))
+    pub fn model(&self) -> Result<(Model, Config)> {
+        let config: Config = serde_json::from_slice(&std::fs::read(self.config.clone())?)?;
+        let device = device()?;
+        let vb = unsafe {
+            VarBuilder::from_mmaped_safetensors(&vec![self.model.clone()], DType::F32, &device)?
+        };
+        let model = Model::new(&config, vb.pp("backbone"))?;
+        Ok((model, config))
     }
 }
 
 impl Display for ModelFile {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        write!(f, "{:?}", self.0)
+        write!(f, "{:?}, {:?}", self.model, self.config)
     }
 }

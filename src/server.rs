@@ -191,9 +191,9 @@ async fn graphiql() -> impl IntoResponse {
 }
 
 pub async fn start() -> Result<()> {
-    let model = ModelFile::download()?.model()?;
+    let (model, config) = ModelFile::download()?.model()?;
     let tokenizer = TokenizerFile::download()?.tokenizer()?;
-    let assistant = Assistant::new(model, tokenizer);
+    let assistant = Assistant::new(model, config, tokenizer);
     let storage = Arc::new(Mutex::new(assistant));
     let schema = AssistantSchema::build(Query, EmptyMutation, Subscription)
         .data(storage.clone())
