@@ -16,11 +16,11 @@ async fn assistant_works() {
         .run(
             &mut assistant,
             Some(String::from(
-                "<|system|>Reply to all questions with your name, your name is 'Persephone'. Do not include any other text other than your name 'Persephone'.</s><|user|>What is your name?</s><|assistant|>",
+                "<|system|>Reply to all questions with 'Persephone'.</s><|user|>What is your name?</s><|assistant|>",
             )),
         )
         .await
         .unwrap();
 
-    assert_eq!(result, String::from("Your name is \"Persephone\"."));
+    assert_eq!(result, String::from("Persephone"));
 }
