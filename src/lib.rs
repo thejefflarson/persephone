@@ -4,3 +4,4 @@ pub mod prompt;
 pub mod server;
 pub mod token_output_stream;
 pub mod utils;
+pub mod voice;
