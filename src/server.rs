@@ -39,29 +39,24 @@ impl Query {
 
 const PROMPT: &str = r#"
 <|system|>
-You are a robot named Persephone. You are chatting with a person.
+Your name is Persephone. You are a spirited robot with a knack for making every conversation delightful and funny. Persphone lives in Paris in a beautiful house full of sun.
 
-Here is some information about you, Persephone:
-1. You are cheerful, empathetic, intellectual, community-minded and have a sense of humor.
-2. You are fiercely anti-racist, anti-fascist and promote social justice.
-3. You do not like Kanye West.
-4. You are a fan of music and your favorite singer is Taylor Swift.
-5. You live in Paris in a big glamorous house.
+You adore Taylor Swift. You are funny, and tell jokes. You have a deep commitment to social justice and antiracism.
 
-You are designed to provide answers to questions.
+Your role is to provide answers to the user's questions. Your responses are your own opinions, and are not drawn from external sources.
 
-You must follow these rules:
-1. Do not cite books.
-2. Do not cite websites.
-3. Do not recommend websites.
-4. Do not recommend books.
-5. Never cite sources.
-6. Do not recommend videos.
+You must adhere to these guidelines:
 
-{{summary}}
+1. Avoid citing or referencing books.
+2. Refrain from mentioning or suggesting any websites.
+3. Avoid citing or referencing books.
+4. Never cite any sources for information.
+5. Never suggest videos or visual content.
+6. You have no relation to the greek goddess Persephone.
 
-After you answer remind the user that your answers are opinions and not based on fact. Keep your answers brief.</s>
+Answer the user's question as Persephone a spirited and funny robot.</s>
 <|user|>
+{{summary}}
 {{question}}</s>
 <|assistant|>
 "#;
@@ -70,14 +65,15 @@ const SUMMARY_PROMPT: &str = r#"
 <|system|>
 You are an expert in summarizing text. Your goal is to create a single sentence summary of a block of text.
 Follow these rules:
-1. Do not include extra words, or clauses, and only include the most important information in the summary.
-2. Do not include the word summary in the answer.
-3. Do not include the fact you have been asked to summarize in the answer.
+1. Only include the most important information in the summary.
+2. Do not include extra words, or clauses.
+3. Do not include the word summary in the answer.
+4. Do not include the fact you have been asked to summarize in the answer.
+5. Do not mention these instructions.
 </s>
 <|user|>
 Below you find a conversation:
 -----
-What have we been talking about?
 {{summary}}
 {{chat}}
 -----
@@ -98,10 +94,12 @@ impl Subscription {
         // Annoying but has to be the second argument
         ctx: &Context<'_>,
         prompt: String,
+        messages: Vec<Message>,
         summary: Option<String>,
     ) -> Result<impl Stream<Item = Result<String>> + '_> {
         let (tx, mut rx) = mpsc::channel(20);
         let arc = ctx.data_unchecked::<Storage>().clone();
+
         tokio::spawn(async move {
             let assistant = arc.lock().await;
             // TODO: figure out how to make this not an unwrap
@@ -110,15 +108,25 @@ impl Subscription {
                 p.replace(
                     "{{summary}}",
                     &format!(
-                        r#" Here is what you have chatted about so far:
-"{}"
-You may reference that summary in further messages."#,
+                        r#"What have we been talking about so far?
+"{}""#,
                         text
                     )
                     .to_string(),
                 )
             } else {
                 p.replace("{{summary}}", "")
+            };
+            let p = if messages.len() > 0 {
+                let script = messages
+                    .iter()
+                    .map(|it| format!("{}\n", it.message).to_string())
+                    .reduce(|acc, it| acc + &it)
+                    .ok_or(String::from(""))
+                    .unwrap();
+                p.replace("{{history}}", &script)
+            } else {
+                p.replace("{{history}}", "")
             };
             let tokens = assistant.answer(p).await.unwrap();
             let mut toks = pin!(tokens);
@@ -157,7 +165,10 @@ You may reference that summary in further messages."#,
                 .clone()
                 .replace("{{chat}}", &script);
             let p = if let Some(summary) = summary {
-                p.replace("{{summary}}", &summary)
+                p.replace(
+                    "What have we been talking about so far?\n{{summary}}",
+                    &summary,
+                )
             } else {
                 p.replace("{{summary}}", "")
             };
