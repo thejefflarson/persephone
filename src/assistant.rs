@@ -2,7 +2,6 @@ use std::time::Instant;
 
 use crate::token_output_stream::TokenOutputStream;
 use crate::utils::device;
-use anyhow::anyhow;
 use anyhow::Result;
 use async_stream::stream;
 use candle_core::DType::F16;
