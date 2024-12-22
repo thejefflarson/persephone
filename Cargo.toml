@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.94"
+anyhow = "1.0.95"
 async-graphql = { version = "7.0.13", features = ["tracing"] }
 async-graphql-axum = "7.0.13"
 async-stream = "0.3.6"
