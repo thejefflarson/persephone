@@ -76,8 +76,9 @@ jobs:
         with:
           path: |
             cargo-registry
+            cargo-git
             sccache
-          key: ${{ runner.os }}-rust-cache-${{ hashFiles('Cargo.*') }}
+          key: ${{ runner.os }}-rust-cache
 
       - name: Inject rust-build-cache
         uses: reproducible-containers/buildkit-cache-dance@v3
@@ -85,6 +86,7 @@ jobs:
           cache-map: |
             {
               "cargo-registry": "/usr/local/cargo/registry",
+              "cargo-git": "/usr/local/cargo/git"
               "sccache": "/sccache"
             }
           skip-extraction: ${{ steps.cache.outputs.cache-hit }}
