@@ -32,6 +32,10 @@ jobs:
         key: ${{ runner.os }}-cargo-${{ hashFiles('src/assistant.rs') }}
     - name: Run sccache-cache
       uses: mozilla-actions/sccache-action@v0.0.7
+    - name: Configure sccache
+      run: |
+        echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+        echo “SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
     - name: Build
       run: cargo build
     - name: Run tests
