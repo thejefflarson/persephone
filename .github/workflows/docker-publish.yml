@@ -86,7 +86,7 @@ jobs:
           cache-map: |
             {
               "cargo-registry": "/usr/local/cargo/registry",
-              "cargo-git": "/usr/local/cargo/git"
+              "cargo-git": "/usr/local/cargo/git",
               "sccache": "/sccache"
             }
           skip-extraction: ${{ steps.cache.outputs.cache-hit }}
