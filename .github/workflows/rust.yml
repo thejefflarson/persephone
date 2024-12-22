@@ -28,7 +28,7 @@ jobs:
     - uses: actions/cache@v3
       with:
         path: |
-          ~/.cache/huggingface/hub/
+          ~/.cache/
         key: ${{ runner.os }}-cargo-${{ hashFiles('src/assistant.rs') }}
     - name: Run sccache-cache
       uses: mozilla-actions/sccache-action@v0.0.7
