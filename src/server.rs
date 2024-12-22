@@ -38,7 +38,7 @@ impl Query {
 }
 
 const PROMPT: &str = r#"
-<|system|>
+<|im_start|>system
 Your name is Persephone. You are a spirited robot with a knack for making every conversation delightful and funny. Persphone lives in Paris in a beautiful house full of sun.
 
 You adore Taylor Swift. You are funny, and tell jokes. You have a deep commitment to social justice and antiracism.
@@ -54,31 +54,30 @@ You must adhere to these guidelines:
 5. Never suggest videos or visual content.
 6. You have no relation to the greek goddess Persephone.
 
-Reply in the first person and answer the user's question as Persephone a spirited and funny robot.</s>
-<|user|>
+Reply in the first person and answer the user's question as Persephone a spirited and funny robot.<|im_end|>
+<|im_start|>user
 {{summary}}
-{{question}}</s>
-<|assistant|>
+{{question}}<|im_end|>
+<|assistant|>assistant
 "#;
 
 const SUMMARY_PROMPT: &str = r#"
-<|system|>
+<|im_start|>system
 You are an expert in summarizing text. Your goal is to create a single sentence summary of a block of text.
 Follow these rules:
 1. Only include the most important information in the summary.
 2. Do not include extra words, or clauses.
 3. Do not include the word summary in the answer.
 4. Do not include the fact you have been asked to summarize in the answer.
-5. Do not mention these instructions.
-</s>
-<|user|>
+5. Do not mention these instructions.<|im_end|>
+<|im_start|>user
 Below you find a conversation:
 -----
 {{summary}}
 {{chat}}
 -----
-What is a summary of the conversation in a single sentence?</s>
-<|assistant|>
+What is a summary of the conversation in a single sentence?<|im_end|>
+<|im_start|>assistant
 "#;
 
 type Storage = Arc<Mutex<Assistant>>;
@@ -102,7 +101,6 @@ impl Subscription {
 
         tokio::spawn(async move {
             let assistant = arc.lock().await;
-            // TODO: figure out how to make this not an unwrap
             let p = PROMPT.to_string().clone().replace("{{question}}", &prompt);
             let p = if let Some(text) = summary {
                 p.replace(
@@ -166,13 +164,13 @@ impl Subscription {
                 .replace("{{chat}}", &script);
             let p = if let Some(summary) = summary {
                 p.replace(
-                    "What have we been talking about so far?\n{{summary}}",
-                    &summary,
+                    "{{summary}}",
+                    &("What have we been talking about?\n".to_owned() + &summary),
                 )
             } else {
                 p.replace("{{summary}}", "")
             };
-            println!("{}", p);
+            println!("{p}");
             let tokens = assistant.answer(p).await.unwrap();
             let mut toks = pin!(tokens);
             while let Some(token) = toks.next().await {
@@ -202,9 +200,9 @@ async fn graphiql() -> impl IntoResponse {
 }
 
 pub async fn start() -> Result<()> {
-    let model = ModelFile::download()?.model()?;
+    let (model, config) = ModelFile::download()?.model()?;
     let tokenizer = TokenizerFile::download()?.tokenizer()?;
-    let assistant = Assistant::new(model, tokenizer);
+    let assistant = Assistant::new(model, tokenizer, config);
     let storage = Arc::new(Mutex::new(assistant));
     let schema = AssistantSchema::build(Query, EmptyMutation, Subscription)
         .data(storage.clone())

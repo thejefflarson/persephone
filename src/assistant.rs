@@ -1,12 +1,15 @@
 use std::time::Instant;
 
 use crate::token_output_stream::TokenOutputStream;
+use crate::utils::device;
 use anyhow::anyhow;
 use anyhow::Result;
 use async_stream::stream;
+use candle_core::DType::F16;
 use candle_core::Tensor;
 use candle_transformers::generation::LogitsProcessor;
-use candle_transformers::models::quantized_llama::ModelWeights;
+use candle_transformers::generation::Sampling;
+use candle_transformers::models::llama::{Cache, Config, Llama, LlamaEosToks};
 use candle_transformers::utils::apply_repeat_penalty;
 use futures_util::Stream;
 use tokenizers::Tokenizer;
@@ -15,13 +18,18 @@ use crate::utils;
 
 #[derive(Clone)]
 pub struct Assistant {
-    model: ModelWeights,
+    model: Llama,
     tokenizer: Tokenizer,
+    config: Config,
 }
 
 impl Assistant {
-    pub fn new(model: ModelWeights, tokenizer: Tokenizer) -> Self {
-        Self { model, tokenizer }
+    pub fn new(model: Llama, tokenizer: Tokenizer, config: Config) -> Self {
+        Self {
+            model,
+            tokenizer,
+            config,
+        }
     }
 
     pub async fn answer<'a>(
@@ -35,56 +43,68 @@ impl Assistant {
             candle_core::utils::with_simd128(),
             candle_core::utils::with_f16c()
         );
-        let mut tos = TokenOutputStream::new(self.tokenizer.clone());
-        let mut tokens = tos
+        let mut cache = Cache::new(true, F16, &self.config, &device()?)?;
+        let mut tokenizer = TokenOutputStream::new(self.tokenizer.clone());
+        let mut tokens = tokenizer
             .tokenizer()
             .encode(prompt, true)
             .map_err(anyhow::Error::msg)?
             .get_ids()
             .to_vec();
-        let eos = *self
-            .tokenizer
-            .get_vocab(true)
-            .get("</s>")
-            .ok_or_else(|| anyhow!("no end of text token?"))?;
+        let eos_tok_id = self
+            .config
+            .eos_token_id
+            .clone()
+            .ok_or("no eos_token?")
+            .map_err(anyhow::Error::msg)?;
+        let eos = match eos_tok_id {
+            LlamaEosToks::Single(t) => Ok(t),
+            _ => Err("multiple eos tokens?"),
+        }
+        .map_err(anyhow::Error::msg)?;
         let device = utils::device()?;
-        let mut logits_processor = LogitsProcessor::new(299792458, Some(0.8), None);
-        let mut generated_tokens = 0;
-        // todo, we might need this to be not here dunno
-        let mut assistant = self.clone();
+        let mut logits_processor = LogitsProcessor::from_sampling(
+            299792458,
+            Sampling::TopP {
+                p: 0.9,
+                temperature: 0.8,
+            },
+        );
         let start = Instant::now();
-        let mut next_token = {
-            let input = Tensor::new(tokens.as_slice(), &device)?.unsqueeze(0)?;
-            let logits = assistant.model.forward(&input, 0)?;
-            let logits = logits.squeeze(0)?;
-            logits_processor.sample(&logits)?
-        };
-        let prompt_len = tokens.len();
         let s = stream! {
-            tokens.push(next_token.clone());
-            if let Some(token) = tos.next_token(next_token)? {
-                yield(Ok(token))
-            }
-            generated_tokens += 1;
+            let mut index_pos = 0;
+            let mut generated_tokens = 0;
             loop {
-                let input = Tensor::new(&[next_token], &device)?.unsqueeze(0)?;
-                let logits = assistant.model.forward(&input, prompt_len + generated_tokens)?.squeeze(0)?;
+                let (context_size, context_index) = if cache.use_kv_cache && index_pos > 0 {
+                    (1, index_pos)
+                } else {
+                    (tokens.len(), 0)
+                };
+                let ctxt = &tokens[tokens.len().saturating_sub(context_size)..];
+                let input = Tensor::new(ctxt, &device)?.unsqueeze(0)?;
+                let logits = self.model.forward(&input, context_index, &mut cache)?;
+                let logits = logits.squeeze(0)?;
                 let start_at = tokens.len().saturating_sub(64);
-                let logits = apply_repeat_penalty(
+                apply_repeat_penalty(
                     &logits,
                     1.1,
                     &tokens[start_at..],
                 )?;
-                next_token = logits_processor.sample(&logits)?;
+                index_pos += ctxt.len();
+                let next_token = logits_processor.sample(&logits)?;
                 generated_tokens += 1;
-                tokens.push(next_token.clone());
-                if let Some(token) = tos.next_token(next_token)? {
-                    yield Ok(token)
-                }
+                tokens.push(next_token);
 
                 if next_token == eos {
                     break;
                 }
+
+                if let Some(t) = tokenizer.next_token(next_token)? {
+                    yield Ok(t)
+                }
+            }
+            if let Some(rest) = tokenizer.decode_rest()? {
+                yield Ok(rest)
             }
             let done = start.elapsed();
             println!(
