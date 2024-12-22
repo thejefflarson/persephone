@@ -24,6 +24,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=$SCCACHE_DIR,sharing=locked \
     cargo build --release
 RUN /app/target/release/persephone download
+RUN sccache --show-stats
 
 FROM rust:1
 COPY --from=builder /app/target/release/persephone /usr/local/bin/persephone
