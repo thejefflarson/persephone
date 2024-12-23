@@ -13,17 +13,23 @@ jobs:
   build:
     runs-on: persephone-runners
     steps:
-    - name: Install rustup
-      run: |
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-        . "$HOME/.cargo/env"
-    - uses: actions/checkout@v3
-    - uses: Swatinem/rust-cache@v2
     - uses: actions/cache@v4
       with:
         path: |
           ~/.cache/
+          ~/.cargo/
         key: ${{ runner.os }}-cargo-${{ hashFiles('src/assistant.rs') }}
+        restore-keys: |
+          ${{ runner.os }}-rust-${{ hashFiles('src/assistant.rs') }}
+          ${{ runner.os }}-rust-
+    - name: Install rustup
+      run: |
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        cat ~/.bashrc
+        cat ~/.bash_profile
+        . "$HOME/.cargo/env"
+    - uses: actions/checkout@v3
+    - uses: Swatinem/rust-cache@v2
     - name: Run sccache-cache
       uses: mozilla-actions/sccache-action@v0.0.7
     - name: Configure sccache
