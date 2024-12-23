@@ -33,13 +33,13 @@ jobs:
       id-token: write
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: debug
         run: |
           ls -la /var/run/
           docker -D ps
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
 
       # Install the cosign tool except on PR
       # https://github.com/sigstore/cosign-installer
