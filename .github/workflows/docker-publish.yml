@@ -33,6 +33,9 @@ jobs:
       id-token: write
 
     steps:
+      - name: What groups am I?
+        run: |
+          groups
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -44,9 +47,7 @@ jobs:
         with:
           cosign-release: 'v2.2.4'
 
-      - name: Do we have a socket?
-        run: |
-          ls -la /var/run/
+
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
