@@ -79,9 +79,9 @@ jobs:
             cargo-registry
             cargo-git
             sccache
-          key: ${{ runner.os }}-rust-cache-{{ hashFiles('Cargo.*') }}
+          key: ${{ runner.os }}-rust-cache-${{ hashFiles('Cargo.*') }}
           restore-keys: |
-            ${{ runner.os }}-rust-cache-{{ hashFiles('Cargo.*') }}
+            ${{ runner.os }}-rust-cache-${{ hashFiles('Cargo.*') }}
             ${{ runner.os }}-rust-cache
 
       - name: Inject rust-build-cache
