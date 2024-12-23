@@ -36,6 +36,7 @@ jobs:
       - name: What groups am I?
         run: |
           groups
+          getent group docker
       - name: Checkout repository
         uses: actions/checkout@v4
 
