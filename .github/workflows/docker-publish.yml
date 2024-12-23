@@ -46,7 +46,8 @@ jobs:
 
       - name: Do we have a socket?
         run: |
-          ls -la /var/run
+          ls -la /var/run/
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       # Set up BuildKit Docker container builder to be able to build
