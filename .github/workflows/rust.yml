@@ -15,9 +15,7 @@ jobs:
     steps:
     - name: Debug
       run: |
-        which cargo
-        which rustup
-        ls /proc/self/cgroup
+        cat /proc/self/cgroup
     - uses: actions/checkout@v3
     - uses: Swatinem/rust-cache@v2
     - uses: actions/cache@v4
