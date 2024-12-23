@@ -36,7 +36,8 @@ jobs:
       - name: debug
         run: |
           ls -la /var/run/
-          docker ps
+          docker -D ps
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
