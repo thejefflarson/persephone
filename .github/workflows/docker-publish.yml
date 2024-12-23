@@ -71,6 +71,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
+      # global key here so we always have cache
       - name: Make Build Cache for Docker
         uses: actions/cache@v4
         with:
@@ -78,7 +79,10 @@ jobs:
             cargo-registry
             cargo-git
             sccache
-          key: ${{ runner.os }}-rust-cache
+          key: ${{ runner.os }}-rust-cache-{{ hashFiles('Cargo.*') }}
+          restore-keys: |
+            ${{ runner.os }}-rust-cache-{{ hashFiles('Cargo.*') }}
+            ${{ runner.os }}-rust-cache
 
       - name: Inject rust-build-cache
         uses: reproducible-containers/buildkit-cache-dance@v3
