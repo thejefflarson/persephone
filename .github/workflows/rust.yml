@@ -25,9 +25,7 @@ jobs:
     - name: Install rustup
       run: |
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-        cat ~/.bashrc
-        cat ~/.bash_profile
-        . "$HOME/.cargo/env"
+        echo "${CARGO_HOME:-$HOME/.cargo}/bin" >> $GITHUB_PATH
     - uses: actions/checkout@v3
     - uses: Swatinem/rust-cache@v2
     - name: Run sccache-cache
