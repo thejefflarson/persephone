@@ -13,10 +13,10 @@ jobs:
   build:
     runs-on: persephone-runners
     steps:
-    - name: Debug
+    - name: Install rustup
       run: |
-        cat /proc/self/cgroup
-        echo $ImageOS
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        . "$HOME/.cargo/env"
     - uses: actions/checkout@v3
     - uses: Swatinem/rust-cache@v2
     - uses: actions/cache@v4
