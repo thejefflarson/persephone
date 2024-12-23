@@ -24,7 +24,7 @@ jobs:
           ${{ runner.os }}-rust-
     - name: Install rustup
       run: |
-        sudo apt install build-essential -y
+        sudo apt update && sudo apt install build-essential -y
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
         echo "${CARGO_HOME:-$HOME/.cargo}/bin" >> $GITHUB_PATH
     - uses: actions/checkout@v3
