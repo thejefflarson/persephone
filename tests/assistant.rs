@@ -4,7 +4,6 @@ use persephone::prompt::BlockingPrompt;
 use persephone::prompt::SimplePrompt;
 
 // This test is really expensive
-#[ignore]
 #[tokio::test]
 async fn assistant_works() {
     let tokenizer = TokenizerFile::download().unwrap().tokenizer().unwrap();
