@@ -91,8 +91,7 @@ jobs:
 
       - name: Check cache
         run: |
-          ls -la /usr/local/cargo/registry/index/
-          ls -la /usr/local/cargo/registry/cache/
+          ls -la ~/.cargo/
           ls -la /sccache
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
