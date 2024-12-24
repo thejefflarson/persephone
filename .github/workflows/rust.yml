@@ -16,7 +16,7 @@ jobs:
     - name: debug
       run: |
         whoami
-        which cargo
+        ls -la ~/
 
     - uses: actions/cache@v4
       with:
