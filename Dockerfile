@@ -33,4 +33,4 @@ FROM rust:1
 COPY --from=builder /app/target/release/persephone /usr/local/bin/persephone
 COPY --from=builder /root/.cache /root/.cache
 EXPOSE 8000
-CMD ["persephone", "server"]⏎
+ENTRYPOINT ["persephone", "server"]⏎

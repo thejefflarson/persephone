@@ -38,4 +38,6 @@ jobs:
         echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
         echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
     - name: Run tests
-      run: cargo test --verbose -- --nocapture
+      run: cargo test --release --verbose -- --nocapture
+      env:
+        RUST_BACKTRACE: 1
