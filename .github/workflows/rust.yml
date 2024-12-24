@@ -25,7 +25,6 @@ jobs:
           ~/.cargo/registry/index/
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
-          target/
         key: ${{ runner.os }}-rust-${{ hashFiles('Cargo.*') }}
         restore-keys: |
           ${{ runner.os }}-rust-${{ hashFiles('Cargo.*') }}

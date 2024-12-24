@@ -75,7 +75,6 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            target/
             sccache
           key: ${{ runner.os }}-rust-${{ hashFiles('Cargo.*') }}
           restore-keys: |
@@ -87,11 +86,10 @@ jobs:
         with:
           cache-map: |
             {
-              "~/.cargo/bin/": "~/.cargo/bin/",
-              "~/.cargo/registry/index/": "~/.cargo/registry/index/",
-              "~/.cargo/registry/cache/": "~/.cargo/registry/cache/",
-              "~/.cargo/git/db/": "~/.cargo/git/db/,
-              "target/": "target/"
+              "~/.cargo/bin/": "/usr/local/cargo/bin/",
+              "~/.cargo/registry/index/": "/usr/local/cargo/registry/index/",
+              "~/.cargo/registry/cache/": "/usr/local/cargo/registry/cache/",
+              "~/.cargo/git/db/": "/usr/local/cargo/git/db/",
               "sccache": "/sccache"
             }
           skip-extraction: ${{ steps.cache.outputs.cache-hit }}
