@@ -13,11 +13,19 @@ jobs:
   build:
     runs-on: persephone-runners
     steps:
+    - name: debug
+      run: |
+        whoami
+        which cargo
+
     - uses: actions/cache@v4
       with:
         path: |
-          ~/.cache/
-          ~/.cargo/
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
         key: ${{ runner.os }}-rust-${{ hashFiles('Cargo.*') }}
         restore-keys: |
           ${{ runner.os }}-rust-${{ hashFiles('Cargo.*') }}
