@@ -19,6 +19,7 @@ jobs:
         ls -la ~/
         cat ~/.bashrc
         pwd
+        env
 
     - uses: actions/cache@v4
       with:
