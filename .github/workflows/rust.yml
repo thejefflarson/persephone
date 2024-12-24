@@ -13,9 +13,10 @@ jobs:
   build:
     runs-on: persephone-runners
     steps:
+    # this is a bummer but ok
     - name: Enable rust
       run: |
-        echo ".cargo/bin" >> $GITHUB_ENV
+        echo "$HOME/.cargo/bin" >> $GITHUB_ENV
 
     - uses: actions/cache@v4
       with:
