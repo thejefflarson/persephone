@@ -18,9 +18,9 @@ jobs:
         path: |
           ~/.cache/
           ~/.cargo/
-        key: ${{ runner.os }}-rust-${{ hashFiles('src/assistant.rs') }}
+        key: ${{ runner.os }}-rust-${{ hashFiles('Cargo.*') }}
         restore-keys: |
-          ${{ runner.os }}-rust-${{ hashFiles('src/assistant.rs') }}
+          ${{ runner.os }}-rust-${{ hashFiles('Cargo.*') }}
           ${{ runner.os }}-rust-
     - uses: actions/checkout@v3
     - uses: Swatinem/rust-cache@v2
