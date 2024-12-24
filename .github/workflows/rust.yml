@@ -13,13 +13,9 @@ jobs:
   build:
     runs-on: persephone-runners
     steps:
-    - name: debug
+    - name: Enable rust
       run: |
-        whoami
-        ls -la ~/
-        cat ~/.bashrc
-        pwd
-        env
+        . "$HOME/cargo/env"
 
     - uses: actions/cache@v4
       with:
