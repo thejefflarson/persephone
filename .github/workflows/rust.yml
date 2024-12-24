@@ -17,7 +17,8 @@ jobs:
       run: |
         whoami
         ls -la ~/
-        cat .bashrc
+        cat ~/.bashrc
+        pwd
 
     - uses: actions/cache@v4
       with:
